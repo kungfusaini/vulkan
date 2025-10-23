@@ -1,0 +1,11 @@
+# Ignore common Node.js and Git files
+node_modules
+npm-debug.log
+.git
+.gitignore
+
+# Ignore development-only files:
+gen-env.js
+
+.env
+.env.*
