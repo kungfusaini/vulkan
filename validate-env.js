@@ -10,7 +10,7 @@ if (!process.env.NODE_ENV) {
 }
 
 // Common required variables
-const commonRequired = ['PORT', 'TO_EMAIL', 'FROM_EMAIL'];
+const commonRequired = ['PORT', 'TO_EMAIL', 'FROM_EMAIL', 'HOST'];
 commonRequired.forEach(key => {
   if (!process.env[key]) {
     errors.push(`${key} is required`);
@@ -26,8 +26,15 @@ if (process.env.NODE_ENV === 'prod') {
 
 // Development specific
 if (process.env.NODE_ENV === 'dev') {
-  if (!process.env.ETHEREAL_USER || !process.env.ETHEREAL_PASS) {
-    errors.push('ETHEREAL_USER and ETHEREAL_PASS are required in development');
+	if (!process.env.TEST_MAIL) {
+	  errors.push('TEST_MAIL is required in dev');
+	} else if (process.env.TEST_MAIL !== 'true' && process.env.TEST_MAIL !== 'false') {
+	  errors.push('TEST_MAIL must be "true" or "false"');
+	}
+
+		
+  if (process.env.TEST_MAIL === 'true' && (!process.env.ETHEREAL_USER || !process.env.ETHEREAL_PASS)) {
+    errors.push('ETHEREAL_USER and ETHEREAL_PASS are required if TEST_MAIL=true');
   }
 }
 

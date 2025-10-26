@@ -1,5 +1,3 @@
-require('dotenv').config();
-
 // Validate environment first
 require('./validate-env');
 
@@ -22,6 +20,7 @@ const contactLimiter = rateLimit({
 });
 
 /* ---------- routes ---------- */
+app.use('/status', require('./routes/status'));
 app.use('/web_contact', contactLimiter, require('./routes/web_contact'));
 
 /* ---------- error handling ---------- */
@@ -36,6 +35,8 @@ process.on('unhandledRejection', err => {
 
 /* ---------- server ---------- */
 const PORT = process.env.PORT; 
-app.listen(PORT, '127.0.0.1', () =>
+const HOST = process.env.HOST;
+
+app.listen(PORT, '0.0.0.0', () =>
   console.log(`vulkan service running on localhost:${PORT}`)
 );
