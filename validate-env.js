@@ -33,8 +33,14 @@ if (process.env.NODE_ENV === 'dev') {
 	}
 
 		
-  if (process.env.TEST_MAIL === 'true' && (!process.env.ETHEREAL_USER || !process.env.ETHEREAL_PASS)) {
+  if (process.env.TEST_MAIL === 'true'){
+	if (!process.env.ETHEREAL_USER || !process.env.ETHEREAL_PASS) {
     errors.push('ETHEREAL_USER and ETHEREAL_PASS are required if TEST_MAIL=true');
+  }
+	else{
+  		console.log(`Ethereal web interface: https://ethereal.email/login`);
+  		console.log(`Ethereal credentials - User: ${process.env.ETHEREAL_USER}, Pass: ${process.env.ETHEREAL_PASS}`);
+  	}
   }
 }
 

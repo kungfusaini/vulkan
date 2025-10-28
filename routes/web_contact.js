@@ -4,7 +4,10 @@ const nodemailer= require('nodemailer');
 
 /* ---------- honeypot ---------- */
 function honeypot(req, res, next) {
-  if (req.body.botcheck) return res.status(400).json({ error: 'bad' });
+  if (req.body.botcheck) {
+    console.log(`[web_contact] Bot detected via honeypot - IP: ${req.ip}`);
+    return res.status(400).json({ error: 'bad' });
+  }
   next();
 }
 
@@ -27,14 +30,22 @@ const transporter = nodemailer.createTransport({
   tls: { rejectUnauthorized: false }
 });
 
+
 /* ---------- POST  ---------- */
 router.post('/', honeypot, async (req, res) => {
   const { name, email, message } = req.body;
 
-  if (!name || !email || !message)
+  console.log(`[web_contact] POST request received from ${req.ip} - Name: ${name}, Email: ${email}`);
+
+  if (!name || !email || !message) {
+    console.log(`[web_contact] Validation failed - missing fields. Name: ${name}, Email: ${email}, Message: ${message ? 'present' : 'missing'}`);
     return res.status(400).json({ error: 'missing fields' });
-  if (!/^\S+@\S+\.\S+$/.test(email))
+  }
+  
+  if (!/^\S+@\S+\.\S+$/.test(email)) {
+    console.log(`[web_contact] Validation failed - invalid email format: ${email}`);
     return res.status(400).json({ error: 'bad email' });
+  }
 
   const mail = {
     from: `"${name}" <${process.env.FROM_EMAIL}>`,
@@ -45,14 +56,23 @@ router.post('/', honeypot, async (req, res) => {
   };
 
   try {
-    await transporter.sendMail(mail);
+    console.log(`[web_contact] Attempting to send email to ${process.env.TO_EMAIL} from ${name} (${email})`);
+    const result = await transporter.sendMail(mail);
+    console.log(`[web_contact] Email sent successfully - Message ID: ${result.messageId}`);
     res.json({ ok: true });
   } catch (e) {
-    console.error(e);
+    console.error(`[web_contact] Email send failed - Error: ${e.message}`, { 
+      error: e, 
+      from: name, 
+      email: email, 
+      to: process.env.TO_EMAIL 
+    });
     res.status(500).json({ error: 'send failed' });
   }
 });
 
 console.log('[web_contact] router loaded');
+console.log(`[web_contact] Mail transport configured - Environment: ${process.env.NODE_ENV}, Host: ${transporter.options.host || 'N/A'}`);
+
 module.exports = router;
 
