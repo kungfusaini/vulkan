@@ -47,6 +47,12 @@ router.post('/', honeypot, async (req, res) => {
     return res.status(400).json({ error: 'bad email' });
   }
 
+  // Check if mail is enabled
+  if (process.env.MAIL_ENABLED !== 'true') {
+    console.log(`[web_contact] Mail is disabled - skipping email send for ${name} (${email})`);
+    return res.json({ ok: true });
+  }
+
   const mail = {
     from: `"${name}" <${process.env.FROM_EMAIL}>`,
     to: process.env.TO_EMAIL,
@@ -72,7 +78,12 @@ router.post('/', honeypot, async (req, res) => {
 });
 
 console.log('[web_contact] router loaded');
-console.log(`[web_contact] Mail transport configured - Environment: ${process.env.NODE_ENV}, Host: ${transporter.options.host || 'N/A'}`);
+console.log(`[web_contact] Mail enabled: ${process.env.MAIL_ENABLED}`);
+if (process.env.MAIL_ENABLED === 'true') {
+  console.log(`[web_contact] Mail transport configured - Environment: ${process.env.NODE_ENV}, Host: ${transporter.options.host || 'N/A'}`);
+} else {
+  console.log(`[web_contact] Mail is disabled - no emails will be sent`);
+}
 
 module.exports = router;
 

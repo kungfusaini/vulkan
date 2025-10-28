@@ -10,15 +10,23 @@ if (!process.env.NODE_ENV) {
 }
 
 // Common required variables
-const commonRequired = ['PORT', 'TO_EMAIL', 'FROM_EMAIL', 'HOST'];
+const commonRequired = ['PORT', 'TO_EMAIL', 'FROM_EMAIL', 'HOST', 'MAIL_ENABLED'];
 commonRequired.forEach(key => {
   if (!process.env[key]) {
     errors.push(`${key} is required`);
   }
 });
 
+// Validate MAIL_ENABLED format
+if (process.env.MAIL_ENABLED !== 'true' && process.env.MAIL_ENABLED !== 'false') {
+  errors.push('MAIL_ENABLED must be "true" or "false"');
+}
+
 // Production specific
 if (process.env.NODE_ENV === 'prod') {
+  if (process.env.MAIL_ENABLED !== 'true') {
+    errors.push('MAIL_ENABLED must be "true" in production');
+  }
   if (!process.env.MAILCOW_HOST) {
     errors.push('MAILCOW_HOST is required in production');
   }
@@ -26,21 +34,14 @@ if (process.env.NODE_ENV === 'prod') {
 
 // Development specific
 if (process.env.NODE_ENV === 'dev') {
-	if (!process.env.TEST_MAIL) {
-	  errors.push('TEST_MAIL is required in dev');
-	} else if (process.env.TEST_MAIL !== 'true' && process.env.TEST_MAIL !== 'false') {
-	  errors.push('TEST_MAIL must be "true" or "false"');
-	}
-
-		
-  if (process.env.TEST_MAIL === 'true'){
+  if (process.env.MAIL_ENABLED === 'true'){
 	if (!process.env.ETHEREAL_USER || !process.env.ETHEREAL_PASS) {
-    errors.push('ETHEREAL_USER and ETHEREAL_PASS are required if TEST_MAIL=true');
+    errors.push('ETHEREAL_USER and ETHEREAL_PASS are required if MAIL_ENABLED=true');
   }
 	else{
-  		console.log(`Ethereal web interface: https://ethereal.email/login`);
-  		console.log(`Ethereal credentials - User: ${process.env.ETHEREAL_USER}, Pass: ${process.env.ETHEREAL_PASS}`);
-  	}
+   		console.log(`Ethereal web interface: https://ethereal.email/login`);
+   		console.log(`Ethereal credentials - User: ${process.env.ETHEREAL_USER}, Pass: ${process.env.ETHEREAL_PASS}`);
+   	}
   }
 }
 
