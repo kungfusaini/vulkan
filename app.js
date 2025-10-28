@@ -39,5 +39,4 @@ const HOST = process.env.HOST;
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`vulkan service running on localhost:${PORT}`);
-  console.log(`Mail enabled: ${process.env.MAIL_ENABLED}`);
 });
