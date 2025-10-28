@@ -1,6 +1,3 @@
-// Validate environment first
-require('./validate-env');
-
 const express       = require('express');
 const helmet        = require('helmet');
 const rateLimit     = require('express-rate-limit');
