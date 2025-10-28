@@ -1,7 +1,7 @@
 const fs = require('fs');
 const nodemailer = require('nodemailer');
 
-const DEV_SECRETS_FILE = '.env.dev.secrets';
+const DEV_SECRETS_FILE = '.env.dev-secrets';
 
 /**
  * Reads the existing .env.dev-secrets file, strips old Ethereal credentials,

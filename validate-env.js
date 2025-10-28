@@ -22,9 +22,6 @@ if (process.env.NODE_ENV === 'prod') {
   if (!process.env.MAILCOW_HOST) {
     errors.push('MAILCOW_HOST is required in production');
   }
-  if (process.env.GEN_MAIL_CREDS === 'true' || process.env.TEST_MAIL === 'true') {
-    errors.push('GEN_MAIL_GREDS and TEST_MAIL should not be true in production');
-  }
 }
 
 // Development specific
@@ -38,12 +35,6 @@ if (process.env.NODE_ENV === 'dev') {
 		
   if (process.env.TEST_MAIL === 'true' && (!process.env.ETHEREAL_USER || !process.env.ETHEREAL_PASS)) {
     errors.push('ETHEREAL_USER and ETHEREAL_PASS are required if TEST_MAIL=true');
-  }
-
-  if (process.env.GEN_MAIL_CREDS === 'true') {
-    if (process.env.TEST_MAIL !== 'true') {
-      errors.push('GEN_MAIL_CREDS=true requires TEST_MAIL=true');
-    }
   }
 }
 
