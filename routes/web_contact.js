@@ -6,7 +6,7 @@ const hermes  = require('../hermes');
 function honeypot(req, res, next) {
   if (req.body.botcheck) {
     console.log(`[web_contact] Bot detected via honeypot - IP: ${req.ip}`);
-    return res.status(400).json({ error: 'bad' });
+    return res.status(400).json({ error: 'You are a bot!' });
   }
   next();
 }
@@ -19,12 +19,12 @@ router.post('/', honeypot, async (req, res) => {
 
   if (!name || !email || !message) {
     console.log(`[web_contact] Validation failed - missing fields. Name: ${name}, Email: ${email}, Message: ${message ? 'present' : 'missing'}`);
-    return res.status(400).json({ error: 'missing fields' });
+    return res.status(400).json({ error: 'Missing Fields' });
   }
   
   if (!/^\S+@\S+\.\S+$/.test(email)) {
     console.log(`[web_contact] Validation failed - invalid email format: ${email}`);
-    return res.status(400).json({ error: 'bad email' });
+    return res.status(400).json({ error: 'Badly Formed Email' });
   }
 
   try {
