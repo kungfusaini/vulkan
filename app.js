@@ -21,7 +21,7 @@ const contactLimiter = rateLimit({
 
 /* ---------- routes ---------- */
 app.use('/status', require('./routes/status'));
-app.use('/web_contact', contactLimiter, require('./routes/web_contact'));
+app.use('/web_contact', process.env.NODE_ENV === 'dev' ? require('./routes/web_contact') : contactLimiter, require('./routes/web_contact'));
 
 /* ---------- error handling ---------- */
 process.on('uncaughtException', err => {
