@@ -11,9 +11,6 @@ function honeypot(req, res, next) {
   next();
 }
 
-
-
-
 /* ---------- POST  ---------- */
 router.post('/', honeypot, async (req, res) => {
   const { name, email, message } = req.body;
