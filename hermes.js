@@ -7,11 +7,11 @@ const isMailEnabled = () => process.env.MAIL_ENABLED === 'true';
 const transporter = nodemailer.createTransport({
   host: process.env.NODE_ENV === 'prod'
     ? (process.env.MAILCOW_HOST)
-    : process.env.NODE_ENV === 'dev' ? 'smtp.ethereal.email' : null,
+    : process.env.NODE_ENV === 'dev' ? process.env.ETHEREAL_HOST : null,
 
-  port: process.env.NODE_ENV === 'prod' ? 25 : process.env.NODE_ENV === 'dev' ? 587 : null,
+  port: process.env.NODE_ENV === 'prod' ? 25 : process.env.NODE_ENV === 'dev' ? process.env.ETHEREAL_PORT : null,
   
-  ...(process.env.NODE_ENV === 'dev' && {
+  ...(process.env.NODE_ENV === 'dev' && process.env.ETHEREAL_USER && {
     auth: {
       user: process.env.ETHEREAL_USER,
       pass: process.env.ETHEREAL_PASS
@@ -31,14 +31,14 @@ async function sendContactMail(name, email, message) {
 
   const mail = {
     from: `"${name}" <${process.env.FROM_EMAIL}>`,
-    to: process.env.TO_EMAIL,
+    to: process.env.CONTACT_EMAIL,
     replyTo: email,
     subject: `Via Web Contact Form: ${name}`,
     text: message
   };
 
   try {
-    console.log(`[hermes] Attempting to send email to ${process.env.TO_EMAIL} from ${name} (${email})`);
+    console.log(`[hermes] Attempting to send email to ${process.env.CONTACT_EMAIL} from ${name} (${email})`);
     const result = await transporter.sendMail(mail);
     console.log(`[hermes] Email sent successfully - Message ID: ${result.messageId}`);
     return { success: true, messageId: result.messageId };
@@ -47,7 +47,7 @@ async function sendContactMail(name, email, message) {
       error: e, 
       from: name, 
       email: email, 
-      to: process.env.TO_EMAIL 
+      to: process.env.CONTACT_EMAIL 
     });
     throw new Error('send failed');
   }

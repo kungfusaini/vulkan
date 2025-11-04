@@ -1,5 +1,3 @@
-const fs = require('fs');
-
 const errors = [];
 
 // Check if NODE_ENV exists
@@ -9,9 +7,9 @@ if (!process.env.NODE_ENV) {
   errors.push('NODE_ENV must be "prod" or "dev"');
 }
 
-// Common required variables
-const commonRequired = ['PORT', 'TO_EMAIL', 'FROM_EMAIL', 'HOST', 'MAIL_ENABLED'];
-commonRequired.forEach(key => {
+// Base variables (always required)
+const baseRequired = ['PORT', 'HOST', 'MAIL_ENABLED', 'FROM_EMAIL'];
+baseRequired.forEach(key => {
   if (!process.env[key]) {
     errors.push(`${key} is required`);
   }
@@ -22,22 +20,31 @@ if (process.env.MAIL_ENABLED !== 'true' && process.env.MAIL_ENABLED !== 'false')
   errors.push('MAIL_ENABLED must be "true" or "false"');
 }
 
-// Production specific
+// Mail-enabled validation (only when MAIL_ENABLED=true)
+if (process.env.MAIL_ENABLED === 'true') {
+  // Check CONTACT_EMAIL exists and is valid
+  if (!process.env.CONTACT_EMAIL) {
+    if (process.env.NODE_ENV === 'prod') {
+      errors.push('CONTACT_EMAIL is required in production - set via GitHub Secrets');
+    } else {
+      errors.push('CONTACT_EMAIL is required in development - check docker-compose.dev.yml');
+    }
+  } else if (!process.env.CONTACT_EMAIL.includes('@')) {
+    errors.push('CONTACT_EMAIL must be a valid email address');
+  }
+}
+
+// Environment-specific requirements
 if (process.env.NODE_ENV === 'prod') {
   if (process.env.MAIL_ENABLED !== 'true') {
     errors.push('MAIL_ENABLED must be "true" in production');
   }
-  if (!process.env.MAILCOW_HOST) {
-    errors.push('MAILCOW_HOST is required in production');
-  }
+  // MAILCOW_HOST is now set in docker-compose.prod.yml as public config
 }
 
-// Development specific
-if (process.env.NODE_ENV === 'dev') {
-  if (process.env.MAIL_ENABLED === 'true'){
-	if (!process.env.ETHEREAL_USER || !process.env.ETHEREAL_PASS) {
-    errors.push('ETHEREAL_USER and ETHEREAL_PASS are required if MAIL_ENABLED=true');
-  }
+if (process.env.NODE_ENV === 'dev' && process.env.MAIL_ENABLED === 'true') {
+  if (!process.env.ETHEREAL_USER || !process.env.ETHEREAL_PASS) {
+    errors.push('Ethereal credentials missing - ensure setup-ethereal.js runs successfully');
   }
 }
 

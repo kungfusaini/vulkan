@@ -1,42 +1,61 @@
-// Validate environment first
-require('./validate-env');
+const { setupEtherealCredentials } = require('./setup-ethereal');
 
-const express       = require('express');
-const helmet        = require('helmet');
-const rateLimit     = require('express-rate-limit');
+/* ---------- setup ethereal credentials if needed ---------- */
+async function initializeApp() {
+  // Setup ethereal credentials BEFORE validation (only when mail enabled)
+  if (process.env.NODE_ENV === 'dev' && process.env.MAIL_ENABLED === 'true') {
+    await setupEtherealCredentials().catch(err => {
+      console.error('[app] Failed to setup Ethereal credentials:', err.message);
+      process.exit(1);
+    });
+  }
 
-const app = express();
+  // Validate environment after credentials are set up
+  require('./validate-env');
 
-/* ---------- global middleware ---------- */
-app.use(helmet());
-app.use(express.json({ limit: '20kb' }));
-app.use(express.urlencoded({ extended: false }));
+  const express       = require('express');
+  const helmet        = require('helmet');
+  const rateLimit     = require('express-rate-limit');
 
-/* ---------- shared rate-limiter ---------- */
-const contactLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: { error: 'Too many requests, try again later.' }
-});
+  const app = express();
 
-/* ---------- routes ---------- */
-app.use('/status', require('./routes/status'));
-app.use('/web_contact', process.env.NODE_ENV === 'dev' ? require('./routes/web_contact') : contactLimiter, require('./routes/web_contact'));
+  /* ---------- global middleware ---------- */
+  app.use(helmet());
+  app.use(express.json({ limit: '20kb' }));
+  app.use(express.urlencoded({ extended: false }));
 
-/* ---------- error handling ---------- */
-process.on('uncaughtException', err => {
-  console.error('Uncaught exception:', err);
+  /* ---------- shared rate-limiter ---------- */
+  const contactLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: { error: 'Too many requests, try again later.' }
+  });
+
+  /* ---------- routes ---------- */
+  app.use('/status', require('./routes/status'));
+  app.use('/web_contact', process.env.NODE_ENV === 'dev' ? require('./routes/web_contact') : contactLimiter, require('./routes/web_contact'));
+
+  /* ---------- error handling ---------- */
+  process.on('uncaughtException', err => {
+    console.error('Uncaught exception:', err);
+    process.exit(1);
+  });
+
+  process.on('unhandledRejection', err => {
+    console.error('Unhandled rejection:', err);
+    process.exit(1);
+  });
+
+  const PORT = process.env.PORT || 3000;
+  const HOST = process.env.HOST || '0.0.0.0';
+
+  app.listen(PORT, HOST, () => {
+    console.log(`🚀 Server running on http://${HOST}:${PORT}`);
+  });
+}
+
+// Initialize the application
+initializeApp().catch(err => {
+  console.error('[app] Failed to initialize application:', err.message);
   process.exit(1);
-});
-process.on('unhandledRejection', err => {
-  console.error('Unhandled rejection:', err);
-  process.exit(1);
-});
-
-/* ---------- server ---------- */
-const PORT = process.env.PORT; 
-const HOST = process.env.HOST;
-
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`vulkan service running on localhost:${PORT}`);
 });
