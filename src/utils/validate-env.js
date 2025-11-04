@@ -27,7 +27,7 @@ if (process.env.MAIL_ENABLED === 'true') {
     if (process.env.NODE_ENV === 'prod') {
       errors.push('CONTACT_EMAIL is required in production - set via GitHub Secrets');
     } else {
-      errors.push('CONTACT_EMAIL is required in development - check docker-compose.dev.yml');
+      errors.push('CONTACT_EMAIL is required in development - check docker-compose-dev.yml');
     }
   } else if (!process.env.CONTACT_EMAIL.includes('@')) {
     errors.push('CONTACT_EMAIL must be a valid email address');
@@ -39,7 +39,7 @@ if (process.env.NODE_ENV === 'prod') {
   if (process.env.MAIL_ENABLED !== 'true') {
     errors.push('MAIL_ENABLED must be "true" in production');
   }
-  // MAILCOW_HOST is now set in docker-compose.prod.yml as public config
+  // MAILCOW_HOST is now set in docker-compose-prod.yml as public config
 }
 
 if (process.env.NODE_ENV === 'dev' && process.env.MAIL_ENABLED === 'true') {

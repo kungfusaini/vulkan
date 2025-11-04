@@ -1,4 +1,4 @@
-const { setupEtherealCredentials } = require('./setup-ethereal');
+const { setupEtherealCredentials } = require('./utils/setup-ethereal');
 
 /* ---------- setup ethereal credentials if needed ---------- */
 async function initializeApp() {
@@ -11,7 +11,7 @@ async function initializeApp() {
   }
 
   // Validate environment after credentials are set up
-  require('./validate-env');
+  require('./utils/validate-env');
 
   const express       = require('express');
   const helmet        = require('helmet');

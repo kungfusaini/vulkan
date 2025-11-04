@@ -1,6 +1,6 @@
 const express = require('express');
 const router  = express.Router();
-const hermes  = require('../hermes');
+const hermes  = require('../services/hermes');
 
 /* ---------- honeypot ---------- */
 function honeypot(req, res, next) {
