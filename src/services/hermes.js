@@ -34,7 +34,11 @@ async function sendContactMail(name, email, message) {
     to: process.env.CONTACT_EMAIL,
     replyTo: email,
     subject: `Via Web Contact Form: ${name}`,
-    text: message
+    text: message,
+    // Add these headers for proper threading
+    messageId: `<contact-${Date.now()}-${Math.random().toString(36).substr(2, 9)}@${process.env.MAILCOW_HOST || 'localhost'}>`,
+    references: `<${email}>`,
+    'In-Reply-To': `<${email}>`
   };
 
   try {
