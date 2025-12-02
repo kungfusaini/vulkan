@@ -42,6 +42,9 @@ async function initializeApp() {
     app.use('/web_contact', contactLimiter, require('./routes/web_contact'));
   }
 
+  app.use('/', require('./routes/root'));
+  app.use('/robots.txt', require('./routes/robots'));
+
   /* ---------- error handling ---------- */
   process.on('uncaughtException', err => {
     console.error('Uncaught exception:', err);
