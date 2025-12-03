@@ -5,9 +5,10 @@ const router = express.Router();
 
 // Service URLs with custom timeouts
 const services = {
-  sumeetsaini_com: { url: 'https://sumeetsaini.com', timeout: 5000 }, 
+  sumeetsaini_com: { url: 'https://sumeetsaini.com', timeout: 5000 },
   arcanecodex_dev: { url: 'https://arcanecodex.dev', timeout: 5000 },
-  mail: { url: 'https://mail.sumeetsaini.com', timeout: 30000 } // 30 seconds for slow mail
+  mail: { url: 'https://mail.sumeetsaini.com', timeout: 30000 }, // 30 seconds for slow mail
+  stats: { url: 'https://stats.sumeetsaini.com', timeout: 5000 }
 };
 
 // Simple health check using native Node.js modules
@@ -57,6 +58,7 @@ router.get('/', async (req, res) => {
   results.sumeetsaini_com = await checkService(services.sumeetsaini_com.url, services.sumeetsaini_com.timeout);
   results.arcanecodex_dev = await checkService(services.arcanecodex_dev.url, services.arcanecodex_dev.timeout);
   results.mail = await checkService(services.mail.url, services.mail.timeout);
+  results.stats = await checkService(services.stats.url, services.stats.timeout);
   
   // Calculate overall status
   const allHealthy = Object.values(results).every(s => s.status === 'healthy');
