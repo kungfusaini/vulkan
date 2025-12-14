@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const apiKeyAuth = require('../middleware/auth');
 const { writeToMarkdown } = require('../utils/file-writer');
+const fs = require('node:fs').promises;
+const path = require('node:path');
+
+const DATA_DIR = path.join(__dirname, '../../data');
 
 router.post('/', apiKeyAuth, async (req, res) => {
   try {
@@ -39,6 +43,39 @@ router.post('/', apiKeyAuth, async (req, res) => {
     res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to save entry'
+    });
+  }
+});
+
+router.get('/', apiKeyAuth, async (req, res) => {
+  try {
+    const { type } = req.query;
+    const validTypes = ['Note', 'Task', 'Bookmark'];
+    
+    if (!type) {
+      return res.status(400).json({ 
+        error: 'Missing required query parameter: type' 
+      });
+    }
+    
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({ 
+        error: 'Invalid type. Must be one of: Note, Task, Bookmark' 
+      });
+    }
+    
+    const filename = `${type.toLowerCase()}s.md`;
+    const filePath = path.join(DATA_DIR, filename);
+    
+    const content = await fs.readFile(filePath, 'utf8')
+      .catch(() => ''); // Return empty string if file doesn't exist
+    
+    res.type('text/markdown').send(content);
+    
+  } catch (error) {
+    console.error('GET /well error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error' 
     });
   }
 });
