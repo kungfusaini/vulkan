@@ -1,2 +1,2 @@
 node_modules/
-# No secrets files needed - using direct environment injection
+data/
