@@ -17,13 +17,15 @@ router.post('/', apiKeyAuth, async (req, res) => {
       });
     }
     
+    const normalizedType = type.toLowerCase();
+    
     if (typeof body !== 'string' || body.trim() === '') {
       return res.status(400).json({
         error: 'Body must be a non-empty string'
       });
     }
     
-    const result = await writeToMarkdown(type, body.trim());
+    const result = await writeToMarkdown(normalizedType, body.trim());
     
     res.status(201).json({
       success: true,
@@ -50,7 +52,8 @@ router.post('/', apiKeyAuth, async (req, res) => {
 router.get('/', apiKeyAuth, async (req, res) => {
   try {
     const { type } = req.query;
-    const validTypes = ['Note', 'Task', 'Bookmark'];
+    const validTypes = ['note', 'task', 'bookmark'];
+    const normalizedType = type.toLowerCase();
     
     if (!type) {
       return res.status(400).json({ 
@@ -58,13 +61,13 @@ router.get('/', apiKeyAuth, async (req, res) => {
       });
     }
     
-    if (!validTypes.includes(type)) {
+    if (!validTypes.includes(normalizedType)) {
       return res.status(400).json({ 
-        error: 'Invalid type. Must be one of: Note, Task, Bookmark' 
+        error: `Invalid type. Must be one of: ${validTypes.join(', ')}` 
       });
     }
     
-    const filename = `${type.toLowerCase()}s.md`;
+    const filename = `${normalizedType}s.md`;
     const filePath = path.join(DATA_DIR, filename);
     
     const content = await fs.readFile(filePath, 'utf8')

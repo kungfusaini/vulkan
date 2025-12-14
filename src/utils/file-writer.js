@@ -23,11 +23,12 @@ async function ensureFile(filename) {
 
 function formatEntry(type, body) {
   const timestamp = new Date().toISOString();
-  return `**[${timestamp}] - ${type}**\n${body}\n\n`;
+  const capitalizedType = type.charAt(0).toUpperCase() + type.slice(1);
+  return `**[${timestamp}] - ${capitalizedType}**\n${body}\n\n`;
 }
 
 async function writeToMarkdown(type, body) {
-  const validTypes = ['Note', 'Task', 'Bookmark'];
+  const validTypes = ['note', 'task', 'bookmark'];
   
   if (!validTypes.includes(type)) {
     throw new Error(`Invalid type. Must be one of: ${validTypes.join(', ')}`);
