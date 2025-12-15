@@ -8,8 +8,29 @@ const services = {
   sumeetsaini_com: { url: 'https://sumeetsaini.com', timeout: 5000 },
   arcanecodex_dev: { url: 'https://arcanecodex.dev', timeout: 5000 },
   mail: { url: 'https://mail.sumeetsaini.com', timeout: 30000 }, // 30 seconds for slow mail
-  stats: { url: 'https://stats.sumeetsaini.com', timeout: 5000 }
+  stats: { url: 'https://stats.sumeetsaini.com', timeout: 5000 },
+  bucketbot: { type: 'container', name: 'bucketbot', timeout: 3000 }
 };
+
+// Docker container health check
+async function checkContainerStatus(containerName) {
+  try {
+    const Docker = require('dockerode');
+    const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+    const container = docker.getContainer(containerName);
+    const data = await container.inspect();
+    
+    return { 
+      status: data.State.Running ? 'healthy' : 'unhealthy', 
+      response_time: '0ms' 
+    };
+  } catch (error) {
+    return { 
+      status: 'unhealthy', 
+      error: 'Container not found or not running' 
+    };
+  }
+}
 
 // Simple health check using native Node.js modules
 async function checkService(url, timeout) {
@@ -59,6 +80,11 @@ router.get('/', async (req, res) => {
   results.arcanecodex_dev = await checkService(services.arcanecodex_dev.url, services.arcanecodex_dev.timeout);
   results.mail = await checkService(services.mail.url, services.mail.timeout);
   results.stats = await checkService(services.stats.url, services.stats.timeout);
+  
+  // Check container services
+  if (services.bucketbot && services.bucketbot.type === 'container') {
+    results.bucketbot = await checkContainerStatus(services.bucketbot.name);
+  }
   
   // Calculate overall status
   const allHealthy = Object.values(results).every(s => s.status === 'healthy');
