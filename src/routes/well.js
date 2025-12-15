@@ -83,4 +83,49 @@ router.get('/', apiKeyAuth, async (req, res) => {
   }
 });
 
+router.put('/', apiKeyAuth, async (req, res) => {
+  try {
+    const { type, content } = req.body;
+    
+    if (!type || content === undefined) {
+      return res.status(400).json({
+        error: 'Missing required fields: type and content'
+      });
+    }
+    
+    const normalizedType = type.toLowerCase();
+    const validTypes = ['note', 'task', 'bookmark'];
+    
+    if (!validTypes.includes(normalizedType)) {
+      return res.status(400).json({
+        error: `Invalid type. Must be one of: ${validTypes.join(', ')}`
+      });
+    }
+    
+    const filename = `${normalizedType}s.md`;
+    const filePath = path.join(DATA_DIR, filename);
+    
+    // Ensure data directory exists
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    
+    // Replace entire file content
+    await fs.writeFile(filePath, content, 'utf8');
+    
+    res.status(200).json({
+      success: true,
+      message: 'File updated successfully',
+      type: normalizedType,
+      filename,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('PUT /well error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to update file'
+    });
+  }
+});
+
 module.exports = router;
