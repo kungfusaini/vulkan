@@ -1,6 +1,7 @@
 const express = require('express');
 const https = require('https');
 const http = require('http');
+const net = require('net');
 const router = express.Router();
 
 // Service URLs with custom timeouts
@@ -9,8 +10,36 @@ const services = {
   arcanecodex_dev: { url: 'https://arcanecodex.dev', timeout: 5000 },
   mail: { url: 'https://mail.sumeetsaini.com', timeout: 30000 }, // 30 seconds for slow mail
   stats: { url: 'https://stats.sumeetsaini.com', timeout: 5000 },
+  laptop_tunnel: { type: 'tcp', host: '172.22.1.1', port: 2222, timeout: 3000 }, // Check reverse tunnel to laptop
   bucketbot: { type: 'container', name: 'bucketbot', timeout: 3000 }
 };
+
+// TCP port connection check for SSH tunnel detection
+async function checkTCPPort(host, port, timeout) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const start = Date.now();
+    
+    socket.setTimeout(timeout);
+    
+    socket.connect(port, host, () => {
+      // Connection successful - port is open
+      resolve({ status: 'healthy', response_time: `${Date.now() - start}ms` });
+      socket.destroy();
+    });
+    
+    socket.on('error', (error) => {
+      // Connection failed - port closed or unreachable
+      resolve({ status: 'unhealthy', error: error.code });
+    });
+    
+    socket.on('timeout', () => {
+      // Connection timed out
+      resolve({ status: 'unhealthy', error: 'TIMEOUT' });
+      socket.destroy();
+    });
+  });
+}
 
 // Docker container health check
 async function checkContainerStatus(containerName) {
@@ -80,6 +109,14 @@ router.get('/', async (req, res) => {
   results.arcanecodex_dev = await checkService(services.arcanecodex_dev.url, services.arcanecodex_dev.timeout);
   results.mail = await checkService(services.mail.url, services.mail.timeout);
   results.stats = await checkService(services.stats.url, services.stats.timeout);
+  // Check TCP-based services (SSH tunnel)
+  if (services.laptop_tunnel && services.laptop_tunnel.type === 'tcp') {
+    results.laptop_tunnel = await checkTCPPort(
+      services.laptop_tunnel.host, 
+      services.laptop_tunnel.port, 
+      services.laptop_tunnel.timeout
+    );
+  }
   
   // Check container services
   if (services.bucketbot && services.bucketbot.type === 'container') {
