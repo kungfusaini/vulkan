@@ -43,6 +43,7 @@ async function initializeApp() {
   }
 
   app.use('/well', require('./routes/well'));
+  app.use('/vault', require('./routes/vault'));
   app.use('/', require('./routes/root'));
   app.use('/robots.txt', require('./routes/robots'));
 
