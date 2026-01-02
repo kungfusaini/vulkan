@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const apiKeyAuth = require('../middleware/auth');
+const fs = require('node:fs').promises;
+const path = require('node:path');
 
 // Test endpoint to verify vault route is working
 router.get('/test', apiKeyAuth, (req, res) => {
@@ -15,6 +17,9 @@ const {
   validateAmount,
   validatePaymentMethod
 } = require('../utils/csv-manager');
+
+const DATA_DIR = path.join(__dirname, '../../data');
+const CSV_FILE = path.join(DATA_DIR, 'financial_data.csv');
 const {
   addCategory,
   addSubcategory,
@@ -112,6 +117,37 @@ router.get('/data', apiKeyAuth, async (req, res) => {
     res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to retrieve data'
+    });
+  }
+});
+
+// PUT /vault/data - Overwrite entire transaction file
+router.put('/data', apiKeyAuth, async (req, res) => {
+  try {
+    const { content } = req.body;
+    
+    if (content === undefined) {
+      return res.status(400).json({
+        error: 'Missing required field: content'
+      });
+    }
+    
+    // Ensure data directory exists
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    
+    // Write entire content to CSV file (no validation as requested)
+    await fs.writeFile(CSV_FILE, content, 'utf8');
+    
+    res.status(200).json({
+      success: true,
+      message: 'Transaction data updated successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('PUT /vault/data error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to update transaction data'
     });
   }
 });
