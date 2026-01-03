@@ -164,6 +164,11 @@ async function validateSubcategory(category, subcategory) {
   return categoryMap.has(category) && categoryMap.get(category).includes(subcategory);
 }
 
+async function writeCategoriesFile(content) {
+  await ensureDataDir();
+  await fs.writeFile(CATEGORIES_FILE, content, 'utf8');
+}
+
 function clearCache() {
   loaded = false;
   categoryMap = new Map();
@@ -176,5 +181,6 @@ module.exports = {
   getCategories,
   validateCategory,
   validateSubcategory,
-  clearCache
+  clearCache,
+  writeCategoriesFile
 };

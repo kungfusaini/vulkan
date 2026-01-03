@@ -25,7 +25,9 @@ const {
   addSubcategory,
   getCategories,
   validateCategory,
-  validateSubcategory
+  validateSubcategory,
+  clearCache,
+  writeCategoriesFile
 } = require('../utils/category-manager');
 
 // POST /vault/spend - Add new financial entry
@@ -172,6 +174,37 @@ router.get('/categories', apiKeyAuth, async (req, res) => {
     res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to retrieve categories'
+    });
+  }
+});
+
+// PUT /vault/categories - Overwrite entire categories file
+router.put('/categories', apiKeyAuth, async (req, res) => {
+  try {
+    const { content } = req.body;
+    
+    if (content === undefined) {
+      return res.status(400).json({
+        error: 'Missing required field: content'
+      });
+    }
+    
+    // Write entire content to categories file (no validation as requested)
+    await writeCategoriesFile(content);
+    
+    // Clear cache to force reload on next access
+    clearCache();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Categories updated successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('PUT /vault/categories error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to update categories'
     });
   }
 });
