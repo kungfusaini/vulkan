@@ -4,9 +4,6 @@ const path = require('node:path');
 const DATA_DIR = path.join(__dirname, '../../data');
 const BUDGET_FILE = path.join(DATA_DIR, 'budget.json');
 
-let budgetData = null;
-let loaded = false;
-
 async function ensureDataDir() {
   try {
     await fs.access(DATA_DIR);
@@ -33,21 +30,15 @@ async function createExampleBudget() {
 }
 
 async function loadBudget() {
-  if (loaded && budgetData !== null) return budgetData;
-  
   await ensureDataDir();
   
   try {
     const data = await fs.readFile(BUDGET_FILE, 'utf8');
-    budgetData = JSON.parse(data);
-    loaded = true;
-    return budgetData;
+    return JSON.parse(data);
   } catch (error) {
     if (error.code === 'ENOENT') {
       // File doesn't exist, create example budget
-      budgetData = await createExampleBudget();
-      loaded = true;
-      return budgetData;
+      return await createExampleBudget();
     }
     throw error;
   }
@@ -58,8 +49,6 @@ async function loadBudget() {
 async function writeBudgetFile(content) {
   await ensureDataDir();
   await fs.writeFile(BUDGET_FILE, content, 'utf8');
-  // Clear cache to force reload on next access
-  clearCache();
 }
 
 function getCurrentMonth() {
@@ -84,7 +73,6 @@ async function duplicateLastMonth(targetMonth = null) {
   budget[currentMonth] = { ...budget[lastMonth] };
   
   await writeBudgetFile(JSON.stringify(budget, null, 2));
-  await loadBudget(); // Reload to update cache
   
   return {
     sourceMonth: lastMonth,
@@ -93,15 +81,9 @@ async function duplicateLastMonth(targetMonth = null) {
   };
 }
 
-function clearCache() {
-  loaded = false;
-  budgetData = null;
-}
-
 module.exports = {
   loadBudget,
   writeBudgetFile,
   duplicateLastMonth,
-  getCurrentMonth,
-  clearCache
+  getCurrentMonth
 };

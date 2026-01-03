@@ -216,9 +216,6 @@ async function getAllIncome() {
   const content = await fs.readFile(INCOME_FILE, 'utf8');
   return content;
 }
-    throw error;
-  }
-}
 
 async function getEntriesAsArray() {
   const content = await getAllEntries();

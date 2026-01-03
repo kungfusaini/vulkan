@@ -35,8 +35,7 @@ const {
   loadBudget,
   writeBudgetFile,
   duplicateLastMonth,
-  getCurrentMonth,
-  clearBudgetCache
+  getCurrentMonth
 } = require('../utils/budget-manager');
 
 // POST /vault/spend - Add new financial entry
@@ -371,7 +370,7 @@ router.put('/categories', apiKeyAuth, async (req, res) => {
     await writeCategoriesFile(content);
     
     // Clear cache to force reload on next access
-    clearCache();
+    clearBudgetCache();
     
     res.status(200).json({
       success: true,
