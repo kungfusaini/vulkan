@@ -29,6 +29,13 @@ const {
   clearCache,
   writeCategoriesFile
 } = require('../utils/category-manager');
+const {
+  loadBudget,
+  writeBudgetFile,
+  duplicateLastMonth,
+  getCurrentMonth,
+  clearBudgetCache
+} = require('../utils/budget-manager');
 
 // POST /vault/spend - Add new financial entry
 router.post('/spend', apiKeyAuth, async (req, res) => {
@@ -174,6 +181,75 @@ router.get('/categories', apiKeyAuth, async (req, res) => {
     res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to retrieve categories'
+    });
+  }
+});
+
+// GET /vault/budget - Retrieve current budget
+router.get('/budget', apiKeyAuth, async (req, res) => {
+  try {
+    const budget = await loadBudget();
+    res.json(budget);
+  } catch (error) {
+    console.error('GET /vault/budget error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to retrieve budget'
+    });
+  }
+});
+
+// PUT /vault/budget - Overwrite entire budget file
+router.put('/budget', apiKeyAuth, async (req, res) => {
+  try {
+    const { content } = req.body;
+    
+    if (content === undefined) {
+      return res.status(400).json({
+        error: 'Missing required field: content'
+      });
+    }
+    
+    // Write entire content to budget file (no validation as requested)
+    await writeBudgetFile(content);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Budget updated successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('PUT /vault/budget error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to update budget'
+    });
+  }
+});
+
+// POST /vault/budget/duplicate - Duplicate last month to current month
+router.post('/budget/duplicate', apiKeyAuth, async (req, res) => {
+  try {
+    const { targetMonth } = req.body;
+    
+    // Duplicate last month to current month (or specified month)
+    const result = await duplicateLastMonth(targetMonth);
+    
+    // Get the updated budget to return
+    const budget = await loadBudget();
+    
+    res.status(201).json({
+      success: true,
+      message: `Budget duplicated from ${result.sourceMonth} to ${result.targetMonth}`,
+      result,
+      budget
+    });
+  } catch (error) {
+    console.error('POST /vault/budget/duplicate error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to duplicate budget',
+      details: error.message
     });
   }
 });
