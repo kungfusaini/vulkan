@@ -3,7 +3,9 @@ const path = require('node:path');
 
 const DATA_DIR = path.join(__dirname, '../../data');
 const CSV_FILE = path.join(DATA_DIR, 'financial_data.csv');
+const INCOME_FILE = path.join(DATA_DIR, 'income.csv');
 const HEADERS = 'Date,Name,Amount,Category,SubCategory,PaymentMethod,Notes';
+const INCOME_HEADERS = 'Date,Amount,Name';
 
 async function ensureDataDir() {
   try {
@@ -20,6 +22,16 @@ async function ensureCsvFile() {
     await fs.access(CSV_FILE);
   } catch {
     await fs.writeFile(CSV_FILE, HEADERS + '\n', 'utf8');
+  }
+}
+
+async function ensureIncomeFile() {
+  await ensureDataDir();
+  
+  try {
+    await fs.access(INCOME_FILE);
+  } catch {
+    await fs.writeFile(INCOME_FILE, INCOME_HEADERS + '\n', 'utf8');
   }
 }
 
@@ -165,20 +177,45 @@ async function addEntry(entry) {
   // Append to file
   await fs.appendFile(CSV_FILE, csvLine + '\n', 'utf8');
   
-  // Return the exact line that was added (for preview)
+  return csvLine;
+}
+
+async function addIncome(entry) {
+  const { date, amount, name } = entry;
+  
+  // Validate all fields
+  validateDate(date);
+  const validName = validateName(name);
+  const validAmount = validateAmount(amount);
+  
+  await ensureIncomeFile();
+  
+  // Create CSV line for income (Date,Amount,Name)
+  const csvLine = [
+    escapeCsvField(date),
+    escapeCsvField(validAmount.toFixed(2)),
+    escapeCsvField(validName)
+  ].join(',');
+  
+  // Append to file
+  await fs.appendFile(INCOME_FILE, csvLine + '\n', 'utf8');
+  
   return csvLine;
 }
 
 async function getAllEntries() {
-  try {
-    await ensureCsvFile();
-    const content = await fs.readFile(CSV_FILE, 'utf8');
-    return content;
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      await ensureCsvFile();
-      return HEADERS + '\n';
-    }
+  await ensureCsvFile();
+  
+  const content = await fs.readFile(CSV_FILE, 'utf8');
+  return content;
+}
+
+async function getAllIncome() {
+  await ensureIncomeFile();
+  
+  const content = await fs.readFile(INCOME_FILE, 'utf8');
+  return content;
+}
     throw error;
   }
 }
@@ -221,5 +258,7 @@ module.exports = {
   validateDate,
   validateName,
   validateAmount,
-  validatePaymentMethod
+  validatePaymentMethod,
+  addIncome,
+  getAllIncome
 };

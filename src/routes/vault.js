@@ -15,7 +15,9 @@ const {
   validateDate,
   validateName,
   validateAmount,
-  validatePaymentMethod
+  validatePaymentMethod,
+  addIncome,
+  getAllIncome
 } = require('../utils/csv-manager');
 
 const DATA_DIR = path.join(__dirname, '../../data');
@@ -181,6 +183,106 @@ router.get('/categories', apiKeyAuth, async (req, res) => {
     res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to retrieve categories'
+    });
+  }
+});
+
+// POST /vault/income - Add new income entry
+router.post('/income', apiKeyAuth, async (req, res) => {
+  try {
+    const { date, amount, name } = req.body;
+    
+    // Validate required fields
+    if (!date || amount === null || amount === undefined || !name) {
+      return res.status(400).json({
+        error: 'Missing required fields: date, amount, name'
+      });
+    }
+    
+    // Validate data formats
+    validateDate(date);
+    const validName = validateName(name);
+    const validAmount = validateAmount(amount);
+    
+    // Add income to CSV
+    const csvLine = await addIncome({
+      date,
+      name: validName,
+      amount: validAmount
+    });
+    
+    res.status(201).json({
+      success: true,
+      message: 'Income added successfully',
+      preview: csvLine,
+      entry: {
+        date,
+        name: validName,
+        amount: validAmount
+      }
+    });
+    
+  } catch (error) {
+    console.error('POST /vault/income error:', error);
+    
+    if (error.message.includes('required') || 
+        error.message.includes('format') || 
+        error.message.includes('Invalid') ||
+        error.message.includes('cannot') ||
+        error.message.includes('must be')) {
+      return res.status(400).json({
+        error: error.message
+      });
+    }
+    
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to add income'
+    });
+  }
+});
+
+// GET /vault/income - Retrieve all income data
+router.get('/income', apiKeyAuth, async (req, res) => {
+  try {
+    const content = await getAllIncome();
+    res.type('text/csv').send(content);
+  } catch (error) {
+    console.error('GET /vault/income error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to retrieve income data'
+    });
+  }
+});
+
+// PUT /vault/income - Overwrite entire income file
+router.put('/income', apiKeyAuth, async (req, res) => {
+  try {
+    const { content } = req.body;
+    
+    if (content === undefined) {
+      return res.status(400).json({
+        error: 'Missing required field: content'
+      });
+    }
+    
+    // Ensure data directory exists
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    
+    // Write entire content to income file (no validation as requested)
+    await fs.writeFile(path.join(DATA_DIR, 'income.csv'), content, 'utf8');
+    
+    res.status(200).json({
+      success: true,
+      message: 'Income data updated successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('PUT /vault/income error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to update income data'
     });
   }
 });
