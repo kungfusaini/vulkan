@@ -85,12 +85,9 @@ class BackupManager {
       console.log('SSH key starts with:', sshKey.substring(0, 50));
       console.log('SSH key ends with:', sshKey.substring(sshKey.length - 50));
       
-      // Validate SSH key format - support both PEM and binary OpenSSH formats
-      const isPemFormat = sshKey.includes('-----BEGIN OPENSSH PRIVATE KEY-----') && sshKey.includes('-----END OPENSSH PRIVATE KEY-----');
-      const isBinaryFormat = sshKey.startsWith('openssh-key-v1') || sshKey.includes('\0\0\0\0');
-      
-      if (!isPemFormat && !isBinaryFormat) {
-        throw new Error('SSH key is not in recognized OpenSSH format (PEM or binary)');
+      // Validate SSH key format - PEM format only
+      if (!sshKey.includes('-----BEGIN OPENSSH PRIVATE KEY-----') || !sshKey.includes('-----END OPENSSH PRIVATE KEY-----')) {
+        throw new Error('SSH key must be in PEM format with proper BEGIN/END headers');
       }
       
       await fs.writeFile(this.sshKeyPath, sshKey, { mode: 0o600, encoding: 'utf8' });
