@@ -20,6 +20,7 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
     "helmet": "^8.1.0",
-    "nodemailer": "^7.0.10"
+    "nodemailer": "^7.0.10",
+    "simple-git": "^3.20.0"
   }
 }

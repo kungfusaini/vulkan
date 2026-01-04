@@ -1,7 +1,17 @@
 const { setupEtherealCredentials } = require('./utils/setup-ethereal');
+const backupManager = require('./utils/backup-manager');
 
 /* ---------- setup ethereal credentials if needed ---------- */
 async function initializeApp() {
+  // Initialize backup manager only in production (non-blocking if fails)
+  if (process.env.NODE_ENV === 'production') {
+    backupManager.initialize().catch(err => {
+      console.warn('[app] Failed to initialize backup manager:', err.message);
+    });
+  } else {
+    console.log('[app] Development mode - backup functionality disabled');
+  }
+
   // Setup ethereal credentials BEFORE validation (only when mail enabled)
   if (process.env.NODE_ENV === 'dev' && process.env.MAIL_ENABLED === 'true') {
     await setupEtherealCredentials().catch(err => {

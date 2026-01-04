@@ -9,7 +9,13 @@ FROM node:20-alpine
 WORKDIR /app
 COPY --from=builder /app /app
 
+# Install git and openssh for backup operations
+RUN apk add --no-cache git openssh
+
+# Create backup directory
+RUN mkdir -p /app/data-backup
+
 # Must match API_PORT
 EXPOSE 3000
-# IMPORTANT: app.js must be configured to read the API_PORT
+# IMPORTANT: app.js must be configured to read API_PORT
 CMD ["node", "src/app.js"]

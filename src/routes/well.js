@@ -1,13 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const apiKeyAuth = require('../middleware/auth');
+const backupMiddleware = require('../middleware/backup-middleware');
 const { writeToMarkdown } = require('../utils/file-writer');
 const fs = require('node:fs').promises;
 const path = require('node:path');
 
 const DATA_DIR = path.join(__dirname, '../../data');
 
-router.post('/', apiKeyAuth, async (req, res) => {
+router.post('/', backupMiddleware('POST /well'), apiKeyAuth, async (req, res) => {
   try {
     const { type, body } = req.body;
     
@@ -83,7 +84,7 @@ router.get('/', apiKeyAuth, async (req, res) => {
   }
 });
 
-router.put('/', apiKeyAuth, async (req, res) => {
+router.put('/', backupMiddleware('PUT /well'), apiKeyAuth, async (req, res) => {
   try {
     const { type, content } = req.body;
     

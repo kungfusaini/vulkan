@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const apiKeyAuth = require('../middleware/auth');
+const backupMiddleware = require('../middleware/backup-middleware');
 const fs = require('node:fs').promises;
 const path = require('node:path');
 
@@ -39,7 +40,7 @@ const {
 } = require('../utils/budget-manager');
 
 // POST /vault/spend - Add new financial entry
-router.post('/spend', apiKeyAuth, async (req, res) => {
+router.post('/spend', backupMiddleware('POST /spend'), apiKeyAuth, async (req, res) => {
   try {
     const { date, name, amount, category, subcategory, payment_method, notes } = req.body;
     
@@ -132,7 +133,7 @@ router.get('/data', apiKeyAuth, async (req, res) => {
 });
 
 // PUT /vault/data - Overwrite entire transaction file
-router.put('/data', apiKeyAuth, async (req, res) => {
+router.put('/data', backupMiddleware('PUT /data'), apiKeyAuth, async (req, res) => {
   try {
     const { content } = req.body;
     
@@ -187,7 +188,7 @@ router.get('/categories', apiKeyAuth, async (req, res) => {
 });
 
 // POST /vault/income - Add new income entry
-router.post('/income', apiKeyAuth, async (req, res) => {
+router.post('/income', backupMiddleware('POST /income'), apiKeyAuth, async (req, res) => {
   try {
     const { date, amount, name } = req.body;
     
@@ -256,7 +257,7 @@ router.get('/income', apiKeyAuth, async (req, res) => {
 });
 
 // PUT /vault/income - Overwrite entire income file
-router.put('/income', apiKeyAuth, async (req, res) => {
+router.put('/income', backupMiddleware('PUT /income'), apiKeyAuth, async (req, res) => {
   try {
     const { content } = req.body;
     
@@ -301,7 +302,7 @@ router.get('/budget', apiKeyAuth, async (req, res) => {
 });
 
 // PUT /vault/budget - Overwrite entire budget file
-router.put('/budget', apiKeyAuth, async (req, res) => {
+router.put('/budget', backupMiddleware('PUT /budget'), apiKeyAuth, async (req, res) => {
   try {
     const { content } = req.body;
     
@@ -329,7 +330,7 @@ router.put('/budget', apiKeyAuth, async (req, res) => {
 });
 
 // POST /vault/budget/duplicate - Duplicate last month to current month
-router.post('/budget/duplicate', apiKeyAuth, async (req, res) => {
+router.post('/budget/duplicate', backupMiddleware('POST /budget/duplicate'), apiKeyAuth, async (req, res) => {
   try {
     const { targetMonth } = req.body;
     
@@ -356,7 +357,7 @@ router.post('/budget/duplicate', apiKeyAuth, async (req, res) => {
 });
 
 // PUT /vault/categories - Overwrite entire categories file
-router.put('/categories', apiKeyAuth, async (req, res) => {
+router.put('/categories', backupMiddleware('PUT /categories'), apiKeyAuth, async (req, res) => {
   try {
     const { content } = req.body;
     
@@ -387,7 +388,7 @@ router.put('/categories', apiKeyAuth, async (req, res) => {
 });
 
 // POST /vault/categories - Add new category or subcategory
-router.post('/categories', apiKeyAuth, async (req, res) => {
+router.post('/categories', backupMiddleware('POST /categories'), apiKeyAuth, async (req, res) => {
   try {
     console.log('POST /vault/categories request body:', req.body);
     console.log('Headers:', JSON.stringify(req.headers, null, 2));
