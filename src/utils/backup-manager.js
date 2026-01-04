@@ -9,12 +9,12 @@ class BackupManager {
     this.sourceDir = path.join(__dirname, '../../data');
     this.git = null;
     this.isBackingUp = false;
-    this.sshKeyPath = null;
+    this.sshKeyPath = '/run/secrets/backup_ssh_key';
   }
 
   async initialize() {
     // Only initialize backup functionality in production
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV !== 'prod') {
       console.log('Development mode - backup functionality disabled');
       return;
     }
@@ -50,17 +50,29 @@ class BackupManager {
             await this.git.status();
             console.log('Git repository already exists');
           } catch (statusError) {
-            // If simple-git fails completely, fall back to manual git commands
-            if (process.env.NODE_ENV === 'production') {
+              // If simple-git fails completely, fall back to manual git commands
+            if (process.env.NODE_ENV === 'prod') {
               console.log('Falling back to manual git commands...');
               await this.initializeWithManualCommands();
             }
           }
         }
         
-        // Add remote if configured
+        // Add remote if configured (check if it exists first)
         if (process.env.BACKUP_REPO_URL) {
-          await this.git.addRemote('origin', process.env.BACKUP_REPO_URL);
+          try {
+            const remotes = await this.git.getRemotes(true);
+            const hasOrigin = remotes.some(remote => remote.name === 'origin');
+            
+            if (!hasOrigin) {
+              await this.git.addRemote('origin', process.env.BACKUP_REPO_URL);
+              console.log('Remote origin added successfully');
+            } else {
+              console.log('Remote origin already exists, skipping addition');
+            }
+          } catch (remoteError) {
+            console.error('Failed to check/add remote:', remoteError.message);
+          }
         }
       }
       try {
@@ -94,34 +106,37 @@ class BackupManager {
 
   async setupSshKey() {
     try {
-      // Create temporary SSH key file
-      this.sshKeyPath = path.join(os.tmpdir(), `backup-ssh-key-${Date.now()}`);
+      // Create /run/secrets directory if it doesn't exist
+      await fs.mkdir(path.dirname(this.sshKeyPath), { recursive: true });
+      
+      // Create .ssh directory and known_hosts file
+      const sshDir = '/root/.ssh';
+      const knownHostsPath = path.join(sshDir, 'known_hosts');
+      
+      await fs.mkdir(sshDir, { recursive: true });
+      
+      // Add GitHub to known hosts to prevent verification failures
+      const githubKnownHost = 'github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7smOX1lSfBuMqP5exwQmQjLu6iT6dlh6hqEF/dJnMAn70Sv6';
+      const knownHostsEntry = `github.com,140.82.112.4 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7smOX1lSfBuMqP5exwQmQjLu6iT6dlh6hqEF/dJnMAn70Sv6\n`;
+      
+      await fs.writeFile(knownHostsPath, knownHostsEntry, { mode: 0o644 });
+      
+      // Write SSH key to persistent file
       await fs.writeFile(this.sshKeyPath, process.env.BACKUP_SSH_KEY, { mode: 0o600 });
       
-      // Set git SSH command to use the key
-      process.env.GIT_SSH_COMMAND = `ssh -i ${this.sshKeyPath} -o StrictHostKeyChecking=no`;
+      // Set git SSH command to use key with known hosts and fallback options
+      process.env.GIT_SSH_COMMAND = `ssh -i ${this.sshKeyPath} -o StrictHostKeyChecking=no -o UserKnownHostsFile=${knownHostsPath}`;
       
-      console.log('SSH key set up from environment variable');
+      console.log('SSH key written to persistent file from environment variable');
+      console.log('GitHub added to known hosts for SSH authentication');
     } catch (error) {
       console.error('Failed to setup SSH key:', error.message);
     }
   }
 
-  async cleanupSshKey() {
-    if (this.sshKeyPath) {
-      try {
-        await fs.unlink(this.sshKeyPath);
-        this.sshKeyPath = null;
-        delete process.env.GIT_SSH_COMMAND;
-      } catch (error) {
-        console.error('Failed to cleanup SSH key:', error.message);
-      }
-    }
-  }
-
   async backupData(triggerEndpoint = 'unknown') {
     // Only perform backup in production
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV !== 'prod') {
       return { success: false, message: 'Development mode - backup disabled' };
     }
 
@@ -164,8 +179,13 @@ class BackupManager {
           // Push to remote if configured
           if (process.env.BACKUP_REPO_URL) {
             try {
-              await this.git.push('origin', 'main');
-              console.log(`Backup pushed to remote: ${message}`);
+              // Get current branch and use it instead of forcing main
+              const status = await this.git.status();
+              const currentBranch = status.current || 'master';
+              
+              // Push to current branch (avoid undefined main issue)
+              await this.git.push('origin', currentBranch);
+              console.log(`Backup pushed to remote: ${message} (branch: ${currentBranch})`);
             } catch (pushError) {
               console.error('Failed to push to remote:', pushError);
               // Still return success since local backup worked
@@ -189,7 +209,6 @@ class BackupManager {
       return { success: false, error: error.message };
     } finally {
       this.isBackingUp = false;
-      await this.cleanupSshKey();
     }
   }
 
@@ -238,10 +257,11 @@ class BackupManager {
     const { execSync } = require('child_process');
     
     try {
-      // Setup SSH command for manual git operations
+      // Setup SSH command for manual git operations with enhanced options
       const gitEnv = { ...process.env };
       if (this.sshKeyPath) {
-        gitEnv.GIT_SSH_COMMAND = `ssh -i ${this.sshKeyPath} -o StrictHostKeyChecking=no`;
+        const knownHostsPath = '/root/.ssh/known_hosts';
+        gitEnv.GIT_SSH_COMMAND = `ssh -i ${this.sshKeyPath} -o StrictHostKeyChecking=no -o UserKnownHostsFile=${knownHostsPath} -v`;
       }
       
       // Add files and commit manually
@@ -255,8 +275,11 @@ class BackupManager {
       // Push to remote if configured
       if (process.env.BACKUP_REPO_URL) {
         try {
-          execSync('git push origin main', { cwd: this.backupDir, env: gitEnv });
-          console.log(`Backup pushed to remote: ${message}`);
+          // Get current branch and push to it (avoid branch switching issues)
+          const currentBranch = execSync('git branch --show-current', { cwd: this.backupDir, env: gitEnv }).toString().trim();
+          
+          execSync(`git push origin ${currentBranch}`, { cwd: this.backupDir, env: gitEnv });
+          console.log(`Backup pushed to remote: ${message} (branch: ${currentBranch})`);
         } catch (pushError) {
           console.error('Failed to push to remote:', pushError.message);
           return { success: true, message: `${message} (push failed)`, timestamp, pushError: pushError.message };

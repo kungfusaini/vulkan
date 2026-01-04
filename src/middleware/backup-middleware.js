@@ -8,7 +8,7 @@ const backupManager = require('../utils/backup-manager');
 function backupMiddleware(endpointName) {
   return async (req, res, next) => {
     // Only trigger backup in production
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'prod') {
       // Run backup in background using setImmediate to avoid blocking
       setImmediate(() => {
         backupManager.backupData(endpointName).catch(error => {

@@ -4,7 +4,7 @@ const backupManager = require('./utils/backup-manager');
 /* ---------- setup ethereal credentials if needed ---------- */
 async function initializeApp() {
   // Initialize backup manager only in production (non-blocking if fails)
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'prod') {
     backupManager.initialize().catch(err => {
       console.warn('[app] Failed to initialize backup manager:', err.message);
     });
