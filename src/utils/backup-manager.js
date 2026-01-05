@@ -7,7 +7,7 @@ class BackupManager {
     this.sourceDir = path.join(__dirname, '../../data');
     this.git = null;
     this.isBackingUp = false;
-    this.sshKeyPath = '/run/secrets/backup_ssh_key';
+    this.sshKeyPath = '/run/secrets/vulkan_backup_ssh_key';
   }
 
   async initialize() {
@@ -16,7 +16,7 @@ class BackupManager {
       return;
     }
 
-    if (process.env.BACKUP_SSH_KEY) {
+    if (process.env.VULKAN_BACKUP_SSH_KEY) {
       await this.setupSshKey();
     }
 
@@ -75,9 +75,9 @@ class BackupManager {
       await fs.mkdir(path.dirname(this.sshKeyPath), { recursive: true });
       
       // Write SSH key to persistent file with proper encoding
-      const sshKey = process.env.BACKUP_SSH_KEY;
+      const sshKey = process.env.VULKAN_BACKUP_SSH_KEY;
       if (!sshKey) {
-        throw new Error('BACKUP_SSH_KEY environment variable is empty');
+        throw new Error('VULKAN_BACKUP_SSH_KEY environment variable is empty');
       }
       
       // Log SSH key info for debugging
@@ -225,8 +225,7 @@ class BackupManager {
   getGitEnvironment() {
     const gitEnv = { ...process.env };
     if (this.sshKeyPath) {
-      const knownHostsPath = '/root/.ssh/known_hosts';
-      gitEnv.GIT_SSH_COMMAND = `ssh -i ${this.sshKeyPath} -o StrictHostKeyChecking=no -o UserKnownHostsFile=${knownHostsPath}`;
+      gitEnv.GIT_SSH_COMMAND = `ssh -i ${this.sshKeyPath} -o StrictHostKeyChecking=no`;
     }
     return gitEnv;
   }
