@@ -371,7 +371,7 @@ router.put('/categories', backupMiddleware('PUT /categories'), apiKeyAuth, async
     await writeCategoriesFile(content);
     
     // Clear cache to force reload on next access
-    clearBudgetCache();
+    clearCache();
     
     res.status(200).json({
       success: true,
