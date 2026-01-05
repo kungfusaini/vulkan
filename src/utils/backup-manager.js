@@ -124,49 +124,8 @@ class BackupManager {
         return { success: false, message: 'Git not initialized' };
       }
 
-      // Try simple-git first, fall back to manual commands if it fails
-      try {
-        const status = await this.git.status();
-        if (!status.isClean()) {
-          // Add all files and commit
-          await this.git.add(['.']);
-          
-          const timestamp = new Date().toISOString();
-          const message = `Backup from ${triggerEndpoint} - ${timestamp}`;
-          
-          // Configure git user if environment variables are set
-          if (process.env.GIT_AUTHOR_NAME && process.env.GIT_AUTHOR_EMAIL) {
-            await this.git.addConfig('user.name', process.env.GIT_AUTHOR_NAME);
-            await this.git.addConfig('user.email', process.env.GIT_AUTHOR_EMAIL);
-          }
-          
-          await this.git.commit(message);
-          
-          // Push to remote if configured
-          if (process.env.BACKUP_REPO_URL) {
-            try {
-              // Get current branch and push to it (support both master and main)
-              const status = await this.git.status();
-              const currentBranch = status.current || 'master';
-              
-              await this.git.push('origin', currentBranch);
-              console.log(`Backup pushed to remote: ${message} (branch: ${currentBranch})`);
-            } catch (pushError) {
-              console.error('Failed to push to remote:', pushError);
-              // Still return success since local backup worked
-              return { success: true, message: `${message} (push failed)`, timestamp, pushError: pushError.message };
-            }
-          } else {
-            console.log(`Local backup completed: ${message}`);
-          }
-        } else {
-          console.log('No changes to backup');
-          return { success: true, message: 'No changes to backup' };
-        }
-      } catch (gitError) {
-        console.log('Falling back to manual git commands...');
-        return await this.backupWithManualCommands(triggerEndpoint);
-      }
+      // Always use manual commands with token authentication for reliability
+      return await this.backupWithManualCommands(triggerEndpoint);
     } catch (error) {
       console.error('Backup failed:', error);
       return { success: false, error: error.message };
