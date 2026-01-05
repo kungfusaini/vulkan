@@ -7,7 +7,7 @@ class BackupManager {
     this.sourceDir = path.join(__dirname, '../../data');
     this.git = null;
     this.isBackingUp = false;
-    this.sshKeyPath = '/run/secrets/vulkan_backup_ssh_key';
+    this.gitToken = process.env.VULKAN_GIT_TOKEN;
   }
 
   async initialize() {
@@ -16,8 +16,8 @@ class BackupManager {
       return;
     }
 
-    if (process.env.VULKAN_BACKUP_SSH_KEY) {
-      await this.setupSshKey();
+    if (!this.gitToken) {
+      console.warn('VULKAN_GIT_TOKEN not set - backup functionality will be limited');
     }
 
     try {
@@ -30,9 +30,19 @@ class BackupManager {
 
     await fs.mkdir(this.backupDir, { recursive: true });
     
+    // Now initialize git after directory exists
+    try {
+      const git = require('simple-git');
+      this.git = git(this.backupDir);
+    } catch (error) {
+      console.error('Failed to load simple-git:', error.message);
+      return;
+    }
+    
     if (this.git) {
       await this.initializeGitRepo();
       await this.setupRemote();
+      await this.setupGitCredentials();
     }
   }
 
@@ -59,8 +69,10 @@ class BackupManager {
       const hasOrigin = remotes.some(remote => remote.name === 'origin');
       
       if (!hasOrigin) {
-        await this.git.addRemote('origin', process.env.BACKUP_REPO_URL);
-        console.log('Remote origin added successfully');
+        // Convert SSH URL to HTTPS if needed
+        const httpsUrl = process.env.BACKUP_REPO_URL.replace('git@github.com:', 'https://github.com/');
+        await this.git.addRemote('origin', httpsUrl);
+        console.log('Remote origin added successfully (HTTPS)');
       } else {
         console.log('Remote origin already exists, skipping addition');
       }
@@ -69,37 +81,21 @@ class BackupManager {
     }
   }
 
-  async setupSshKey() {
+  async setupGitCredentials() {
+    if (!this.gitToken) {
+      console.warn('No git token available, skipping credential setup');
+      return;
+    }
+    
     try {
-      // Create /run/secrets directory if it doesn't exist
-      await fs.mkdir(path.dirname(this.sshKeyPath), { recursive: true });
-      
-      // Write SSH key to persistent file with proper encoding
-      const sshKey = process.env.VULKAN_BACKUP_SSH_KEY;
-      if (!sshKey) {
-        throw new Error('VULKAN_BACKUP_SSH_KEY environment variable is empty');
-      }
-      
-      // Log SSH key info for debugging
-      console.log('SSH key length:', sshKey.length);
-      console.log('SSH key starts with:', sshKey.substring(0, 50));
-      console.log('SSH key ends with:', sshKey.substring(sshKey.length - 50));
-      
-      // Validate SSH key format - PEM format only
-      if (!sshKey.includes('-----BEGIN OPENSSH PRIVATE KEY-----') || !sshKey.includes('-----END OPENSSH PRIVATE KEY-----')) {
-        throw new Error('SSH key must be in PEM format with proper BEGIN/END headers');
-      }
-      
-      await fs.writeFile(this.sshKeyPath, sshKey, { mode: 0o600, encoding: 'utf8' });
-      
-      // Verify SSH key was written correctly
-      const writtenKey = await fs.readFile(this.sshKeyPath, 'utf8');
-      if (writtenKey !== sshKey) {
-        throw new Error('SSH key was corrupted during file write');
-      }
-      console.log('SSH key validation passed');
+      // Configure git to use token for HTTPS authentication
+      const httpsUrl = `https://${this.gitToken}@github.com/`;
+      await this.git.addConfig('credential.helper', 'store');
+      await this.git.addConfig('user.name', process.env.GIT_AUTHOR_NAME || 'Vulkan Backup Bot');
+      await this.git.addConfig('user.email', process.env.GIT_AUTHOR_EMAIL || 'backup@vulkan.sumeetsaini.com');
+      console.log('Git credentials configured with token');
     } catch (error) {
-      console.error('Failed to setup SSH key:', error.message);
+      console.error('Failed to setup git credentials:', error.message);
     }
   }
 
@@ -181,7 +177,18 @@ class BackupManager {
 
   async copyFiles() {
     try {
+      // Check if source directory exists
+      try {
+        await fs.access(this.sourceDir);
+      } catch (accessError) {
+        console.log('Source data directory does not exist, creating it...');
+        await fs.mkdir(this.sourceDir, { recursive: true });
+        console.log('Created empty source data directory');
+        return; // No files to copy yet
+      }
+      
       const files = await fs.readdir(this.sourceDir).catch(() => []);
+      console.log(`Found ${files.length} files to backup:`, files.join(', '));
       
       for (const file of files) {
         const sourcePath = path.join(this.sourceDir, file);
@@ -193,6 +200,7 @@ class BackupManager {
           if (stat.isFile()) {
             const content = await fs.readFile(sourcePath);
             await fs.writeFile(backupPath, content);
+            console.log(`Copied file: ${file}`);
           }
         } catch (fileError) {
           console.error(`Failed to copy file ${file}:`, fileError.message);
@@ -224,8 +232,11 @@ class BackupManager {
 
   getGitEnvironment() {
     const gitEnv = { ...process.env };
-    if (this.sshKeyPath) {
-      gitEnv.GIT_SSH_COMMAND = `ssh -i ${this.sshKeyPath} -o StrictHostKeyChecking=no`;
+    if (this.gitToken) {
+      // Configure git to use token for HTTPS authentication
+      gitEnv.GIT_ASKPASS = 'echo';
+      gitEnv.GIT_USERNAME = this.gitToken;
+      gitEnv.GIT_PASSWORD = '';
     }
     return gitEnv;
   }
@@ -240,13 +251,30 @@ class BackupManager {
       const timestamp = new Date().toISOString();
       const message = `Backup from ${triggerEndpoint} - ${timestamp}`;
       
+      // Configure git user for manual commands
+      if (process.env.GIT_AUTHOR_NAME) {
+        execSync(`git config user.name "${process.env.GIT_AUTHOR_NAME}"`, { cwd: this.backupDir, env: gitEnv });
+      }
+      if (process.env.GIT_AUTHOR_EMAIL) {
+        execSync(`git config user.email "${process.env.GIT_AUTHOR_EMAIL}"`, { cwd: this.backupDir, env: gitEnv });
+      }
+      
       execSync(`git commit -m "${message}"`, { cwd: this.backupDir, env: gitEnv });
       
       if (process.env.BACKUP_REPO_URL) {
         try {
           // Get current branch and push to it (support both master and main)
           const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: this.backupDir, env: gitEnv }).toString().trim();
+          
+          // Use HTTPS with token for pushing
+          const httpsUrl = process.env.BACKUP_REPO_URL.replace('git@github.com:', 'https://github.com/');
+          const authenticatedUrl = this.gitToken ? 
+            httpsUrl.replace('https://github.com/', `https://${this.gitToken}@github.com/`) : 
+            httpsUrl;
+          
+          execSync(`git remote set-url origin ${authenticatedUrl}`, { cwd: this.backupDir, env: gitEnv });
           execSync(`git push origin ${currentBranch}`, { cwd: this.backupDir, env: gitEnv });
+          
           console.log(`Backup pushed to remote: ${message} (branch: ${currentBranch})`);
         } catch (pushError) {
           console.error('Failed to push to remote:', pushError.message);
