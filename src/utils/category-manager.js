@@ -22,7 +22,10 @@ async function loadCategories() {
   
   try {
     const data = await fs.readFile(CATEGORIES_FILE, 'utf8');
-    const categories = JSON.parse(data);
+    const fileContent = JSON.parse(data);
+    
+    // Extract categories from the full API response structure
+    const categories = fileContent.categories || fileContent;
     
     categoryMap = new Map();
     for (const [category, subcategories] of Object.entries(categories)) {
@@ -45,12 +48,30 @@ async function saveCategories() {
     console.log('Data directory ensured');
     
     const categories = {};
+    let totalSubcategories = 0;
+    
     for (const [category, subcategories] of categoryMap.entries()) {
       categories[category] = subcategories;
+      totalSubcategories += subcategories.length;
     }
-    console.log('Categories object to save:', JSON.stringify(categories));
     
-    const categoriesJson = JSON.stringify(categories, null, 2);
+    // Calculate stats
+    const stats = {
+      categories: categoryMap.size,
+      subcategories: totalSubcategories
+    };
+    
+    // Create full API response structure
+    const fullResponse = {
+      success: true,
+      categories,
+      stats,
+      timestamp: new Date().toISOString()
+    };
+    
+    console.log('Full response to save:', JSON.stringify(fullResponse, null, 2));
+    
+    const categoriesJson = JSON.stringify(fullResponse, null, 2);
     console.log('About to write to file:', CATEGORIES_FILE);
     
     await fs.writeFile(CATEGORIES_FILE, categoriesJson, 'utf8');
@@ -166,7 +187,69 @@ async function validateSubcategory(category, subcategory) {
 
 async function writeCategoriesFile(content) {
   await ensureDataDir();
-  await fs.writeFile(CATEGORIES_FILE, content, 'utf8');
+  
+  let parsedContent = typeof content === 'string' ? JSON.parse(content) : content;
+  
+  // Ensure content has the full API response structure
+  if (!parsedContent.success || !parsedContent.categories || !parsedContent.stats) {
+    throw new Error('writeCategoriesFile expects full API response structure with success, categories, and stats fields');
+  }
+  
+  const categoriesJson = JSON.stringify(parsedContent, null, 2);
+  await fs.writeFile(CATEGORIES_FILE, categoriesJson, 'utf8');
+}
+
+async function getCategoriesFile() {
+  await ensureDataDir();
+  
+  try {
+    const data = await fs.readFile(CATEGORIES_FILE, 'utf8');
+    const fileContent = JSON.parse(data);
+    
+    // If file has old format (raw categories), migrate it
+    if (!fileContent.success && !fileContent.categories) {
+      console.log('Migrating old format categories file to new format');
+      const categories = fileContent;
+      
+      let totalSubcategories = 0;
+      for (const subcategories of Object.values(categories)) {
+        totalSubcategories += subcategories.length;
+      }
+      
+      const stats = {
+        categories: Object.keys(categories).length,
+        subcategories: totalSubcategories
+      };
+      
+      const fullResponse = {
+        success: true,
+        categories,
+        stats,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Write the migrated format
+      await fs.writeFile(CATEGORIES_FILE, JSON.stringify(fullResponse, null, 2), 'utf8');
+      return fullResponse;
+    }
+    
+    // Return the full response structure
+    return fileContent;
+  } catch (error) {
+    // File doesn't exist or is corrupted, return empty structure
+    const emptyResponse = {
+      success: true,
+      categories: {},
+      stats: {
+        categories: 0,
+        subcategories: 0
+      },
+      timestamp: new Date().toISOString()
+    };
+    
+    await fs.writeFile(CATEGORIES_FILE, JSON.stringify(emptyResponse, null, 2), 'utf8');
+    return emptyResponse;
+  }
 }
 
 function clearCache() {
@@ -179,6 +262,7 @@ module.exports = {
   addCategory,
   addSubcategory,
   getCategories,
+  getCategoriesFile,
   validateCategory,
   validateSubcategory,
   clearCache,

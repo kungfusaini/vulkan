@@ -27,6 +27,7 @@ const {
   addCategory,
   addSubcategory,
   getCategories,
+  getCategoriesFile,
   validateCategory,
   validateSubcategory,
   clearCache,
@@ -166,18 +167,8 @@ router.put('/data', backupMiddleware('PUT /data'), apiKeyAuth, async (req, res) 
 // GET /vault/categories - Get available categories and subcategories
 router.get('/categories', apiKeyAuth, async (req, res) => {
   try {
-    const categories = await getCategories();
-    const categoryCount = Object.keys(categories).length;
-    const subcategoryCount = Object.values(categories).reduce((sum, subs) => sum + subs.length, 0);
-    
-    res.json({
-      success: true,
-      categories,
-      stats: {
-        categories: categoryCount,
-        subcategories: subcategoryCount
-      }
-    });
+    const fileContent = await getCategoriesFile();
+    res.json(fileContent);
   } catch (error) {
     console.error('GET /vault/categories error:', error);
     res.status(500).json({
