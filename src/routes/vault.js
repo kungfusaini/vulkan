@@ -147,8 +147,14 @@ router.put('/data', backupMiddleware('PUT /data'), apiKeyAuth, async (req, res) 
     // Ensure data directory exists
     await fs.mkdir(DATA_DIR, { recursive: true });
     
-    // Write entire content to CSV file (no validation as requested)
-    await fs.writeFile(CSV_FILE, content, 'utf8');
+    // Ensure content ends with proper newline to prevent CSV corruption
+    let normalizedContent = content;
+    if (!normalizedContent.endsWith('\n')) {
+      normalizedContent += '\n';
+    }
+    
+    // Write entire content to CSV file with proper newline handling
+    await fs.writeFile(CSV_FILE, normalizedContent, 'utf8');
     
     res.status(200).json({
       success: true,
