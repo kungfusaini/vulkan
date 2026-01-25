@@ -18,7 +18,9 @@ const {
   validateAmount,
   validatePaymentMethod,
   addIncome,
-  getAllIncome
+  getAllIncome,
+  addBusiness,
+  getAllBusiness
 } = require('../utils/csv-manager');
 
 const DATA_DIR = path.join(__dirname, '../../data');
@@ -239,6 +241,66 @@ router.post('/income', backupMiddleware('POST /income'), apiKeyAuth, async (req,
   }
 });
 
+// POST /vault/business - Add new business entry
+router.post('/business', backupMiddleware('POST /business'), apiKeyAuth, async (req, res) => {
+  try {
+    const { date, name, amount, payment_method, notes } = req.body;
+    
+    // Validate required fields
+    if (!date || !name || amount === null || amount === undefined || !payment_method) {
+      return res.status(400).json({
+        error: 'Missing required fields: date, name, amount, payment_method'
+      });
+    }
+    
+    // Validate data formats
+    validateDate(date);
+    const validName = validateName(name);
+    const validAmount = validateAmount(amount);
+    const validPaymentMethod = validatePaymentMethod(payment_method);
+    
+    // Add business entry to CSV
+    const csvLine = await addBusiness({
+      date,
+      name: validName,
+      amount: validAmount,
+      payment_method: validPaymentMethod,
+      notes: notes || ''
+    });
+    
+    res.status(201).json({
+      success: true,
+      message: 'Business entry added successfully',
+      preview: csvLine,
+      entry: {
+        date,
+        name: validName,
+        amount: validAmount,
+        payment_method: validPaymentMethod,
+        notes: notes || ''
+      }
+    });
+    
+  } catch (error) {
+    console.error('POST /vault/business error:', error);
+    
+    if (error.message.includes('required') || 
+        error.message.includes('format') || 
+        error.message.includes('Invalid') ||
+        error.message.includes('cannot') ||
+        error.message.includes('must be')) {
+      return res.status(400).json({
+        error: error.message
+      });
+    }
+    
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to add business entry'
+    });
+  }
+});
+
 // GET /vault/income - Retrieve all income data
 router.get('/income', apiKeyAuth, async (req, res) => {
   try {
@@ -249,6 +311,20 @@ router.get('/income', apiKeyAuth, async (req, res) => {
     res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to retrieve income data'
+    });
+  }
+});
+
+// GET /vault/business - Retrieve all business data
+router.get('/business', apiKeyAuth, async (req, res) => {
+  try {
+    const content = await getAllBusiness();
+    res.type('text/csv').send(content);
+  } catch (error) {
+    console.error('GET /vault/business error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to retrieve business data'
     });
   }
 });
@@ -280,6 +356,43 @@ router.put('/income', backupMiddleware('PUT /income'), apiKeyAuth, async (req, r
     res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to update income data'
+    });
+  }
+});
+
+// PUT /vault/business - Overwrite entire business file
+router.put('/business', backupMiddleware('PUT /business'), apiKeyAuth, async (req, res) => {
+  try {
+    const { content } = req.body;
+    
+    if (content === undefined) {
+      return res.status(400).json({
+        error: 'Missing required field: content'
+      });
+    }
+    
+    // Ensure data directory exists
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    
+    // Ensure content ends with proper newline to prevent CSV corruption
+    let normalizedContent = content;
+    if (!normalizedContent.endsWith('\n')) {
+      normalizedContent += '\n';
+    }
+    
+    // Write entire content to business file with proper newline handling
+    await fs.writeFile(path.join(DATA_DIR, 'business.csv'), normalizedContent, 'utf8');
+    
+    res.status(200).json({
+      success: true,
+      message: 'Business data updated successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('PUT /vault/business error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to update business data'
     });
   }
 });
@@ -456,55 +569,6 @@ router.post('/categories', backupMiddleware('POST /categories'), apiKeyAuth, asy
   }
 });
 
-// GET /vault/summary - Get summary statistics
-router.get('/summary', apiKeyAuth, async (req, res) => {
-  try {
-    const entries = await getEntriesAsArray();
-    const categories = await getCategories();
-    
-    if (entries.length === 0) {
-      return res.json({
-        success: true,
-        summary: {
-          total_entries: 0,
-          total_amount: 0,
-          categories_count: Object.keys(categories).length,
-          average_amount: 0
-        }
-      });
-    }
-    
-    const totalAmount = entries.reduce((sum, entry) => sum + entry.amount, 0);
-    const averageAmount = totalAmount / entries.length;
-    
-    // Group by category
-    const categoryTotals = {};
-    entries.forEach(entry => {
-      if (!categoryTotals[entry.category]) {
-        categoryTotals[entry.category] = { count: 0, total: 0 };
-      }
-      categoryTotals[entry.category].count++;
-      categoryTotals[entry.category].total += entry.amount;
-    });
-    
-    res.json({
-      success: true,
-      summary: {
-        total_entries: entries.length,
-        total_amount: Math.round(totalAmount * 100) / 100,
-        categories_count: Object.keys(categories).length,
-        average_amount: Math.round(averageAmount * 100) / 100,
-        category_breakdown: categoryTotals
-      }
-    });
-    
-  } catch (error) {
-    console.error('GET /vault/summary error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: 'Failed to generate summary'
-    });
-  }
-});
+
 
 module.exports = router;

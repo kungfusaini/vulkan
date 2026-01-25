@@ -4,8 +4,10 @@ const path = require('node:path');
 const DATA_DIR = path.join(__dirname, '../../data');
 const CSV_FILE = path.join(DATA_DIR, 'financial_data.csv');
 const INCOME_FILE = path.join(DATA_DIR, 'income.csv');
+const BUSINESS_FILE = path.join(DATA_DIR, 'business.csv');
 const HEADERS = 'Date,Name,Amount,Category,SubCategory,PaymentMethod,Notes';
 const INCOME_HEADERS = 'Date,Amount,Name';
+const BUSINESS_HEADERS = 'Date,Name,Amount,PaymentMethod,Notes';
 
 async function ensureDataDir() {
   try {
@@ -32,6 +34,16 @@ async function ensureIncomeFile() {
     await fs.access(INCOME_FILE);
   } catch {
     await fs.writeFile(INCOME_FILE, INCOME_HEADERS + '\n', 'utf8');
+  }
+}
+
+async function ensureBusinessFile() {
+  await ensureDataDir();
+  
+  try {
+    await fs.access(BUSINESS_FILE);
+  } catch {
+    await fs.writeFile(BUSINESS_FILE, BUSINESS_HEADERS + '\n', 'utf8');
   }
 }
 
@@ -203,6 +215,35 @@ async function addIncome(entry) {
   return csvLine;
 }
 
+async function addBusiness(entry) {
+  const { date, name, amount, payment_method, notes } = entry;
+  
+  // Validate all fields
+  validateDate(date);
+  const validName = validateName(name);
+  const validAmount = validateAmount(amount);
+  const validPaymentMethod = validatePaymentMethod(payment_method);
+  
+  // Notes is optional
+  const validNotes = notes ? String(notes).trim() : '';
+  
+  await ensureBusinessFile();
+  
+  // Create CSV line for business (Date,Name,Amount,PaymentMethod,Notes)
+  const csvLine = [
+    escapeCsvField(date),
+    escapeCsvField(validName),
+    escapeCsvField(validAmount.toFixed(2)),
+    escapeCsvField(validPaymentMethod),
+    escapeCsvField(validNotes)
+  ].join(',');
+  
+  // Append to file
+  await fs.appendFile(BUSINESS_FILE, csvLine + '\n', 'utf8');
+  
+  return csvLine;
+}
+
 async function getAllEntries() {
   await ensureCsvFile();
   
@@ -214,6 +255,13 @@ async function getAllIncome() {
   await ensureIncomeFile();
   
   const content = await fs.readFile(INCOME_FILE, 'utf8');
+  return content;
+}
+
+async function getAllBusiness() {
+  await ensureBusinessFile();
+  
+  const content = await fs.readFile(BUSINESS_FILE, 'utf8');
   return content;
 }
 
@@ -248,6 +296,35 @@ async function getEntriesAsArray() {
   return entries;
 }
 
+async function getBusinessAsArray() {
+  const content = await getAllBusiness();
+  const lines = content.trim().split('\n');
+  
+  if (lines.length <= 1) {
+    return [];
+  }
+  
+  const entries = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line) {
+      // Simple CSV parsing (assuming no escaped commas in this context)
+      const fields = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
+      if (fields && fields.length === 5) {
+        entries.push({
+          date: fields[0].replace(/^"|"$/g, ''),
+          name: fields[1].replace(/^"|"$/g, ''),
+          amount: parseFloat(fields[2]),
+          payment_method: fields[3].replace(/^"|"$/g, ''),
+          notes: fields[4].replace(/^"|"$/g, '')
+        });
+      }
+    }
+  }
+  
+  return entries;
+}
+
 module.exports = {
   addEntry,
   getAllEntries,
@@ -257,5 +334,8 @@ module.exports = {
   validateAmount,
   validatePaymentMethod,
   addIncome,
-  getAllIncome
+  getAllIncome,
+  addBusiness,
+  getAllBusiness,
+  getBusinessAsArray
 };
