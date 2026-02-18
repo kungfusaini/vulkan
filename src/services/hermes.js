@@ -23,15 +23,20 @@ const transporter = nodemailer.createTransport({
 });
 
 /* ---------- send contact mail ---------- */
-async function sendContactMail(name, email, message) {
+async function sendContactMail(name, email, message, toEmail) {
   if (!isMailEnabled()) {
     console.log(`[hermes] Mail is disabled - skipping email send for ${name} (${email})`);
     return { success: true, skipped: true };
   }
 
+  if (!toEmail) {
+    console.log(`[hermes] No target email provided - cannot send email`);
+    throw new Error('No target email specified');
+  }
+
   const mail = {
     from: `"${name}" <${process.env.FROM_EMAIL}>`,
-    to: process.env.CONTACT_EMAIL,
+    to: toEmail,
     replyTo: email,
     subject: `Via Web Contact Form: ${name}`,
     text: message,
@@ -42,7 +47,7 @@ async function sendContactMail(name, email, message) {
   };
 
   try {
-    console.log(`[hermes] Attempting to send email to ${process.env.CONTACT_EMAIL} from ${name} (${email})`);
+    console.log(`[hermes] Attempting to send email to ${toEmail} from ${name} (${email})`);
     const result = await transporter.sendMail(mail);
     console.log(`[hermes] Email sent successfully - Message ID: ${result.messageId}`);
     return { success: true, messageId: result.messageId };
@@ -51,7 +56,7 @@ async function sendContactMail(name, email, message) {
       error: e, 
       from: name, 
       email: email, 
-      to: process.env.CONTACT_EMAIL 
+      to: toEmail 
     });
     throw new Error('send failed');
   }

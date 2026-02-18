@@ -22,15 +22,26 @@ if (process.env.MAIL_ENABLED !== 'true' && process.env.MAIL_ENABLED !== 'false')
 
 // Mail-enabled validation (only when MAIL_ENABLED=true)
 if (process.env.MAIL_ENABLED === 'true') {
-  // Check CONTACT_EMAIL exists and is valid
-  if (!process.env.CONTACT_EMAIL) {
+  // Check MAIN_EMAIL exists and is valid (for sumeetsaini origin)
+  if (!process.env.MAIN_EMAIL) {
     if (process.env.NODE_ENV === 'prod') {
-      errors.push('CONTACT_EMAIL is required in production - set via GitHub Secrets');
+      errors.push('MAIN_EMAIL is required in production - set via GitHub Secrets');
     } else {
-      errors.push('CONTACT_EMAIL is required in development - check docker-compose-dev.yml');
+      errors.push('MAIN_EMAIL is required in development - check docker-compose-dev.yml');
     }
-  } else if (!process.env.CONTACT_EMAIL.includes('@')) {
-    errors.push('CONTACT_EMAIL must be a valid email address');
+  } else if (!process.env.MAIN_EMAIL.includes('@')) {
+    errors.push('MAIN_EMAIL must be a valid email address');
+  }
+  
+  // Check RELIQ_STUDIOS_EMAIL exists and is valid (for reliqstudios origin)
+  if (!process.env.RELIQ_STUDIOS_EMAIL) {
+    if (process.env.NODE_ENV === 'prod') {
+      errors.push('RELIQ_STUDIOS_EMAIL is required in production - set via GitHub Secrets');
+    } else {
+      errors.push('RELIQ_STUDIOS_EMAIL is required in development - check docker-compose-dev.yml');
+    }
+  } else if (!process.env.RELIQ_STUDIOS_EMAIL.includes('@')) {
+    errors.push('RELIQ_STUDIOS_EMAIL must be a valid email address');
   }
 }
 
