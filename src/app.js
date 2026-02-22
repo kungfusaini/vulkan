@@ -1,5 +1,6 @@
 const { setupEtherealCredentials } = require('./utils/setup-ethereal');
 const backupManager = require('./utils/backup-manager');
+const projectsManager = require('./utils/projects-manager');
 
 /* ---------- setup ethereal credentials if needed ---------- */
 async function initializeApp() {
@@ -11,6 +12,11 @@ async function initializeApp() {
   } else {
     console.log('[app] Development mode - backup functionality disabled');
   }
+
+  // Initialize projects manager (syncs from external repo)
+  projectsManager.initialize().catch(err => {
+    console.warn('[app] Failed to initialize projects manager:', err.message);
+  });
 
   // Setup ethereal credentials BEFORE validation (only when mail enabled)
   if (process.env.NODE_ENV === 'dev' && process.env.MAIL_ENABLED === 'true') {
@@ -34,6 +40,9 @@ async function initializeApp() {
   app.use(express.json({ limit: '20kb' }));
   app.use(express.urlencoded({ extended: false }));
 
+  /* ---------- static files for projects (images, videos) ---------- */
+  app.use('/projects', express.static('/app/projects'));
+
   /* ---------- shared rate-limiter ---------- */
   const contactLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -45,6 +54,7 @@ async function initializeApp() {
   
   /* ---------- routes ---------- */
   app.use('/status', require('./routes/status'));
+  app.use('/projects', require('./routes/projects'));
   
   if (process.env.NODE_ENV === 'dev') {
     app.use('/web_contact', require('./routes/web_contact'));
