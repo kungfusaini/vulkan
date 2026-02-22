@@ -4,6 +4,16 @@ const projectsManager = require('../utils/projects-manager');
 
 const router = express.Router();
 
+// CORS middleware for projects API
+router.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // GET /projects - Get all projects with optional filtering
 router.get('/', (req, res) => {
   try {
