@@ -344,7 +344,7 @@ class ProjectsManager {
       }
     }
 
-    // Parse H1 sections from body
+    // Parse H1 sections from body and wrap in text object
     const h1Sections = {};
     let lastH1 = null;
     const bodyLines = body.split('\n');
@@ -359,8 +359,8 @@ class ProjectsManager {
       }
     }
 
-    // Merge H1 sections into project
-    Object.assign(project, h1Sections);
+    // Store H1 sections in text object
+    project.text = h1Sections;
 
     return project;
   }
