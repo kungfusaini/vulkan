@@ -314,13 +314,17 @@ class ProjectsManager {
             const match = value.match(/\[(.*)\]/);
             if (match) {
               project.images = match[1].split(',').map(s => s.trim().replace(/^["']|["']$/g, ''));
-              if (project.images.length > 0) {
+              // Only set image from images[0] if image wasn't explicitly set
+              if (!project.image && project.images.length > 0) {
                 project.image = project.images[0];
               }
             }
           } else if (value) {
             project.images = [value.replace(/^["']|["']$/g, '')];
-            project.image = project.images[0];
+            // Only set image from images[0] if image wasn't explicitly set
+            if (!project.image && project.images.length > 0) {
+              project.image = project.images[0];
+            }
           }
         } else if (key === 'video') {
           project.video = value.replace(/^["']|["']$/g, '') || null;
