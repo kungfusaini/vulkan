@@ -6,7 +6,9 @@ const hermes  = require('../services/hermes');
 function getTargetEmail(origin) {
   const emails = {
     'sumeetsaini': process.env.MAIN_EMAIL,
-    'reliqstudios': process.env.RELIQ_STUDIOS_EMAIL
+    'reliqstudios': process.env.RELIQ_STUDIOS_EMAIL,
+    'bangbang': process.env.BANGBANG_STUDIOS_EMAIL,
+    'bangbangstudios': process.env.BANGBANG_STUDIOS_EMAIL
   };
   
   // Default to MAIN_EMAIL if no origin provided
@@ -15,13 +17,13 @@ function getTargetEmail(origin) {
     return process.env.MAIN_EMAIL;
   }
   
-  const targetEmail = emails[origin];
-  
+  const targetEmail = emails[origin] || process.env.MAIN_EMAIL;
+
   if (!targetEmail) {
     console.log(`[web_contact] Unknown origin: ${origin}, defaulting to MAIN_EMAIL`);
     return process.env.MAIN_EMAIL;
   }
-  
+
   return targetEmail;
 }
 
@@ -36,7 +38,8 @@ function honeypot(req, res, next) {
 
 /* ---------- POST  ---------- */
 router.post('/', honeypot, async (req, res) => {
-  const { name, email, message, origin } = req.body;
+  const { name, email, message, subject, origin } = req.body;
+  const resolvedSubject = String(subject || '').trim() || 'New inquiry';
 
   console.log(`[web_contact] POST request received from ${req.ip} - Name: ${name}, Email: ${email}, Origin: ${origin}`);
 
@@ -59,7 +62,7 @@ router.post('/', honeypot, async (req, res) => {
   }
 
   try {
-    const result = await hermes.sendContactMail(name, email, message, toEmail);
+    const result = await hermes.sendContactMail(name, email, message, toEmail, resolvedSubject);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -69,4 +72,3 @@ router.post('/', honeypot, async (req, res) => {
 console.log('[web_contact] router loaded');
 
 module.exports = router;
-

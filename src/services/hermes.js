@@ -23,7 +23,7 @@ const transporter = nodemailer.createTransport({
 });
 
 /* ---------- send contact mail ---------- */
-async function sendContactMail(name, email, message, toEmail) {
+async function sendContactMail(name, email, message, toEmail, subject = 'Via Web Contact Form') {
   if (!isMailEnabled()) {
     console.log(`[hermes] Mail is disabled - skipping email send for ${name} (${email})`);
     return { success: true, skipped: true };
@@ -38,7 +38,7 @@ async function sendContactMail(name, email, message, toEmail) {
     from: `"${name}" <${process.env.FROM_EMAIL}>`,
     to: toEmail,
     replyTo: email,
-    subject: `Via Web Contact Form: ${name}`,
+    subject: `${subject} — ${name}`,
     text: message,
     // Add these headers for proper threading
     messageId: `<contact-${Date.now()}-${Math.random().toString(36).substr(2, 9)}@${process.env.MAILCOW_HOST || 'localhost'}>`,

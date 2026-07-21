@@ -42,8 +42,13 @@ async function initializeApp() {
   
   /* ---------- CORS for projects API ---------- */
   app.use((req, res, next) => {
-    if (req.path.startsWith('/projects')) {
+    if (req.path.startsWith('/projects') || req.path.startsWith('/web_contact')) {
       res.header('Access-Control-Allow-Origin', '*');
+      res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Accept');
+      if (req.method === 'OPTIONS') {
+        return res.sendStatus(204);
+      }
     }
     next();
   });
