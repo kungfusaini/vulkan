@@ -39,7 +39,7 @@ function escapeHtml(value) {
 
 function cleanSourcePage(value) {
   const source = String(value || '').trim().slice(0, 300);
-  if (!source || /[\u0000-\u001f\u007f]/.test(source)) return '';
+  if (!source || /[\u0000-\u001f\u007f<>"'`\\]/.test(source)) return '';
 
   try {
     if (source.startsWith('/')) return source;
