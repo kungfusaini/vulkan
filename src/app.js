@@ -34,6 +34,7 @@ async function initializeApp() {
   const rateLimit     = require('express-rate-limit');
 
   const app = express();
+  app.set('trust proxy', 1);
 
   /* ---------- global middleware ---------- */
   app.use(helmet());
@@ -42,7 +43,7 @@ async function initializeApp() {
   
   /* ---------- CORS for projects API ---------- */
   app.use((req, res, next) => {
-    if (req.path.startsWith('/projects') || req.path.startsWith('/web_contact')) {
+    if (req.path.startsWith('/projects') || req.path.startsWith('/web_contact') || req.path.startsWith('/arcane')) {
       res.header('Access-Control-Allow-Origin', '*');
       res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
       res.header('Access-Control-Allow-Headers', 'Content-Type, Accept');
@@ -77,6 +78,12 @@ async function initializeApp() {
     app.use('/web_contact', require('./routes/web_contact'));
   } else {
     app.use('/web_contact', contactLimiter, require('./routes/web_contact'));
+  }
+
+  if (process.env.NODE_ENV === 'dev') {
+    app.use('/arcane', require('./routes/arcane'));
+  } else {
+    app.use('/arcane', contactLimiter, require('./routes/arcane'));
   }
 
   app.use('/well', require('./routes/well'));
