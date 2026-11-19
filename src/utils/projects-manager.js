@@ -14,51 +14,37 @@ class ProjectsManager {
     this.baseUrl = process.env.PROJECTS_BASE_URL || '';
   }
 
-  async initialize() {
-    if (!this.repoUrl) {
-      console.warn('[projects] PROJECTS_REPO_URL not set - projects functionality disabled');
-      return;
-    }
-
-    // Ensure projects directory exists
-    await fs.mkdir(this.projectsDir, { recursive: true });
-
-    // Initialize git
-    this.git = simpleGit(this.projectsDir);
-
-    // Configure git credentials if token available
+  createGit(baseDir) {
+    const git = baseDir ? simpleGit(baseDir) : simpleGit();
+    const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
     if (this.gitToken) {
-      const authenticatedUrl = this.repoUrl.replace(
-        'https://github.com/',
-        `https://${this.gitToken}@github.com/`
-      );
-      
-      try {
-        await this.git.env('GIT_ASKPASS', 'echo');
-        await this.git.env('GIT_USERNAME', this.gitToken);
-        await this.git.env('GIT_PASSWORD', '');
-        
-        // Try to pull first (if repo already cloned)
-        await this.syncProjects();
-      } catch (error) {
-        console.warn('[projects] Initial sync failed, will try clone:', error.message);
-        // If pull fails, try to clone fresh
-        try {
-          await this.cloneRepo(authenticatedUrl);
-          await this.loadProjects();
-        } catch (cloneError) {
-          console.error('[projects] Failed to initialize projects repo:', cloneError.message);
-        }
-      }
-    } else {
-      console.warn('[projects] VULKAN_GIT_TOKEN not set - may have auth issues');
-      await this.syncProjects().catch(err => {
-        console.warn('[projects] Initial sync failed:', err.message);
-      });
+      // Keep credentials out of remote URLs, command arguments and .git/config.
+      const origin = new URL(this.repoUrl).origin;
+      env.GIT_CONFIG_COUNT = '1';
+      env.GIT_CONFIG_KEY_0 = `http.${origin}/.extraheader`;
+      env.GIT_CONFIG_VALUE_0 = 'Authorization: Basic ' +
+        Buffer.from(`x-access-token:${this.gitToken}`).toString('base64');
     }
+    return git.env(env);
   }
 
-  async cloneRepo(authenticatedUrl) {
+  async initialize() {
+    await fs.mkdir(this.projectsDir, { recursive: true });
+    // Serve the saved portfolio before attempting any network operation.
+    await this.loadProjects();
+    if (!this.repoUrl) {
+      console.warn('[projects] PROJECTS_REPO_URL not set - serving local projects only');
+      return;
+    }
+    if (!this.gitToken) {
+      console.warn('[projects] VULKAN_GIT_TOKEN not set - may have auth issues');
+    }
+    await this.syncProjects().catch(err => {
+      console.warn('[projects] Initial sync failed:', err.message);
+    });
+  }
+
+  async cloneRepo(repoUrl) {
     // Check if .git folder exists (meaning it's already a git repo)
     let isGitRepo = false;
     try {
@@ -94,11 +80,11 @@ class ProjectsManager {
 
       try {
         // Try main first, then master
-        await simpleGit().clone(authenticatedUrl, this.projectsDir).catch(async () => {
+        await this.createGit().clone(repoUrl, this.projectsDir).catch(async () => {
           // If main fails, try with explicit branch
-          const git = simpleGit();
-          await git.clone(authenticatedUrl, this.projectsDir, ['--branch', 'main']).catch(async () => {
-            await git.clone(authenticatedUrl, this.projectsDir, ['--branch', 'master']);
+          const git = this.createGit();
+          await git.clone(repoUrl, this.projectsDir, ['--branch', 'main']).catch(async () => {
+            await git.clone(repoUrl, this.projectsDir, ['--branch', 'master']);
           });
         });
         console.log('[projects] Projects repo cloned successfully');
@@ -125,34 +111,20 @@ class ProjectsManager {
 
     if (!isGitRepo) {
       console.log('[projects] Not a git repo, cloning...');
-      const authenticatedUrl = this.repoUrl.replace(
-        'https://github.com/',
-        `https://${this.gitToken}@github.com/`
-      );
-      await this.cloneRepo(authenticatedUrl);
+      await this.cloneRepo(this.repoUrl);
       await this.loadProjects();
       return { success: true, message: 'Projects cloned', filesUpdated: 0 };
     }
 
     try {
       // Re-initialize git in case directory changed
-      this.git = simpleGit(this.projectsDir);
-      
-      // Configure authenticated URL
-      let remoteUrl = this.repoUrl;
-      if (this.gitToken) {
-        remoteUrl = this.repoUrl.replace(
-          'https://github.com/',
-          `https://${this.gitToken}@github.com/`
-        );
-        
-        // Set the remote URL with auth
-        try {
-          await this.git.remote(['set-url', 'origin', remoteUrl]);
-        } catch {
-          // Remote might not exist yet
-          await this.git.remote(['add', 'origin', remoteUrl]);
-        }
+      this.git = this.createGit(this.projectsDir);
+
+      // Remove credentials persisted by older versions of the sync code.
+      try {
+        await this.git.remote(['set-url', 'origin', this.repoUrl]);
+      } catch {
+        await this.git.remote(['add', 'origin', this.repoUrl]);
       }
 
       // Fetch and pull
@@ -161,16 +133,9 @@ class ProjectsManager {
       // Try main first, then master
       const pulled = await this.git.pull('origin', 'main').catch(async () => {
         return await this.git.pull('origin', 'master');
-      }).catch(err => {
-        console.warn('[projects] Pull failed:', err.message);
-        return { files: [] };
       });
 
-      // Clear cache to force reload
-      this.cache.clear();
-      this.cacheTimestamp = null;
-
-      // Reload projects
+      // Reload projects, retaining the previous cache if loading fails.
       await this.loadProjects();
 
       console.log('[projects] Sync completed successfully');
@@ -185,6 +150,7 @@ class ProjectsManager {
   async loadProjects() {
     try {
       const entries = await fs.readdir(this.projectsDir, { withFileTypes: true });
+      const nextCache = new Map();
       
       for (const entry of entries) {
         // Only process directories
@@ -202,9 +168,10 @@ class ProjectsManager {
         
         const content = await fs.readFile(path.join(projectDir, mdFile), 'utf8');
         const project = this.parseMarkdown(content, slug, projectDir);
-        this.cache.set(slug, project);
+        nextCache.set(slug, project);
       }
 
+      this.cache = nextCache;
       this.cacheTimestamp = new Date().toISOString();
       console.log(`[projects] Loaded ${this.cache.size} projects`);
 
